@@ -129,31 +129,9 @@ async function syncToFeishu() {
   }
 }
 
-// 解析命令行参数
-function parseArgs(): SyncOptions {
-  const args = process.argv.slice(2);
-  const options: SyncOptions = {};
-  
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    
-    if (arg === '--book-id' && i + 1 < args.length) {
-      options.bookId = args[i + 1];
-      i++;
-    } else if (arg === '--full-sync') {
-      options.fullSync = true;
-    } else if (arg === '--dry-run') {
-      options.dryRun = true;
-    }
-  }
-  
-  return options;
-}
-
 // 如果直接运行此脚本
 if (require.main === module) {
-  const options = parseArgs();
-  syncToFeishu(options);
+  syncToFeishu();
 }
 
 export { syncToFeishu };

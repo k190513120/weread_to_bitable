@@ -7,7 +7,6 @@
 
 import { WeReadClient } from '../api/weread/client';
 import { FeishuClient } from '../api/feishu/client';
-import { loadConfig } from '../config/types';
 
 async function testSync() {
   try {
