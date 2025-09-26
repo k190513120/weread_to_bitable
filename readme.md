@@ -1,42 +1,68 @@
-# 将微信读书划线/想法等信息同步到 Notion
+# 将微信读书划线/想法等信息同步到飞书多维表格
 
 ## 项目说明
 
-- 支持将微信读书划线/想法同步到 Notion
-- 通过 github actions 每天定时同步
-- 同步微信读书部分元数据信息
+- 支持将微信读书划线/想法同步到飞书多维表格
+- 通过 GitHub Actions 每天定时同步
+- 同步微信读书书籍信息、阅读进度、划线内容、想法等数据
 
-## 最终效果
+## 功能特性
 
-[点我查看在线版](https://sailor0913.notion.site/2025-1f769034c78f8089b130e603c2443e29)
-
-## 截图
-
-画廊
-![画廊](images/画廊.png)
-
-表格
-![表格](images/表格.png)
+- 📚 自动同步微信读书书籍信息
+- 📝 同步划线内容和个人想法
+- 📊 记录阅读进度和时长
+- 🔄 支持增量同步，避免重复数据
+- ⏰ 支持定时自动同步
+- 🎯 字段优化，避免重复数据
 
 ## 使用教程
 
-**注意：** 项目仍在迭代中，后续更新功能/模板相关说明会在公众号说明
+### 1. 环境配置
 
-### 文字教程
+在项目根目录创建 `.env` 文件，配置以下信息：
 
-[基础配置](https://mp.weixin.qq.com/s/uOtyp-88iPIfN10szycBvg)  
-[支持配置阅读状态/作者](https://mp.weixin.qq.com/s/EDLoitY-qFSdMl5CHvQqzA)
+```env
+# 飞书多维表格配置
+BITABLE_URL=你的飞书多维表格链接
+PERSONAL_BASE_TOKEN=你的飞书个人访问令牌
 
-### 视频教程
+# 微信读书配置
+WEREAD_COOKIE=你的微信读书Cookie
+```
 
-[Youtube](https://www.youtube.com/watch?v=q_k_0l2zSKA&ab_channel=sailor)
+### 2. 安装依赖
 
-[BiliBili](https://www.bilibili.com/video/BV1n8ErzUEeB)
+```bash
+npm install
+```
 
-## 相关配置信息
+### 3. 运行同步
 
-[notion 集成申请](https://www.notion.so/profile/integrations)  
-[模板地址](https://sailor0913.notion.site/1f269034c78f8019af2dc928f665bca9?pvs=73)
+```bash
+# 测试连接
+npm run test:feishu-connection
+
+# 同步所有书籍
+npx ts-node src/scripts/sync-all-books.ts
+
+# 同步单本书籍
+npx ts-node src/scripts/sync-single-book.ts
+```
+
+## 配置说明
+
+### 获取飞书多维表格信息
+
+1. 创建飞书多维表格
+2. 获取多维表格链接
+3. 申请个人访问令牌（Personal Base Token）
+
+### 获取微信读书Cookie
+
+1. 打开微信读书网页版
+2. 登录账号
+3. 打开浏览器开发者工具
+4. 复制Cookie信息
 
 ## 欢迎关注我
 

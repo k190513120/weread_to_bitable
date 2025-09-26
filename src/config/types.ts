@@ -11,6 +11,24 @@ export enum ReadStatus {
 }
 
 /**
+ * 书籍基础信息接口
+ */
+export interface Book {
+  bookId: string;
+  title: string;
+  author: string;
+  cover?: string;
+  category?: string;
+  isbn?: string;
+  translator?: string;
+  publishTime?: string | Date | number;
+  finishReading?: boolean;
+  readingTime?: number; // 秒
+  noteCount?: number;
+  [key: string]: any;
+}
+
+/**
  * 同步状态接口
  */
 export interface SyncState {
@@ -107,4 +125,140 @@ export interface ConfigDatabasePage {
       select: { name: string };
     };
   };
+}
+
+/**
+ * 飞书多维表格相关类型
+ */
+
+/**
+ * 飞书多维表格配置
+ */
+export interface FeishuConfig {
+  appToken: string;
+  tableId: string;
+  personalBaseToken: string;
+}
+
+/**
+ * 同步参数
+ */
+export interface SyncParams {
+  bitable_url: string;
+  personal_base_token: string;
+  weread_cookie: string;
+  book_id?: string; // 可选，用于同步单本书籍
+}
+
+/**
+ * 飞书多维表格URL解析结果
+ */
+export interface BitableUrlParts {
+  appToken: string;
+  tableId: string;
+}
+
+/**
+ * 飞书多维表格书籍记录
+ */
+export interface FeishuBookRecord {
+  record_id?: string;
+  fields: {
+    '书名': string;
+    '作者': string;
+    '译者'?: string;
+    'ISBN'?: string;
+    '分类'?: string;
+    '阅读状态'?: string;
+    '阅读时长'?: number; // 分钟
+    '笔记数量'?: number;
+    '划线内容'?: string;
+    '想法内容'?: string;
+    '出版时间'?: number | null; // 时间戳（毫秒）
+    '最后同步时间': number; // 时间戳（毫秒）
+    '封面链接'?: string; // URL字符串
+    '开始阅读时间'?: number | null; // 时间戳（毫秒）
+    '完成阅读时间'?: number | null; // 时间戳（毫秒）
+    '阅读进度'?: number; // 百分比（0-100）
+    [key: string]: any;
+  };
+}
+
+/**
+ * 飞书API响应基础类型
+ */
+export interface FeishuApiResponse<T = any> {
+  code: number;
+  msg: string;
+  data: T;
+}
+
+/**
+ * 创建记录响应
+ */
+export interface CreateRecordResponse {
+  record: {
+    record_id: string;
+    fields: Record<string, any>;
+  };
+}
+
+/**
+ * 更新记录响应
+ */
+export interface UpdateRecordResponse {
+  record: {
+    record_id: string;
+    fields: Record<string, any>;
+  };
+}
+
+/**
+ * 批量更新响应
+ */
+export interface BatchUpdateResponse {
+  records: Array<{
+    record_id: string;
+    fields: Record<string, any>;
+  }>;
+}
+
+/**
+ * 查询记录响应
+ */
+export interface ListRecordsResponse {
+  has_more: boolean;
+  page_token?: string;
+  total: number;
+  items: Array<{
+    record_id: string;
+    fields: Record<string, any>;
+  }>;
+}
+
+/**
+ * GitHub Action触发参数
+ */
+export interface GitHubActionTriggerParams {
+  event_type: string;
+  client_payload: SyncParams;
+}
+
+/**
+ * GitHub Action触发响应
+ */
+export interface GitHubActionResponse {
+  success: boolean;
+  message: string;
+  run_id?: number;
+}
+
+/**
+ * 飞书同步结果
+ */
+export interface FeishuSyncResult {
+  success: boolean;
+  message: string;
+  recordId?: string;
+  updated: boolean;
 }

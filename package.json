@@ -10,19 +10,34 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:connection": "ts-node src/test-connection.ts",
     "test:config": "ts-node src/test-config.ts",
-    "test:author": "ts-node src/test-author-filter.ts"
+    "test:author": "ts-node src/test-author-filter.ts",
+    "server": "ts-node src/server.ts",
+    "server:dev": "ts-node --watch src/server.ts",
+    "sync:all": "ts-node src/scripts/sync-all-books.ts",
+    "sync:single": "ts-node src/scripts/sync-single-book.ts",
+    "sync:feishu": "ts-node src/scripts/sync-to-feishu.ts",
+    "test:feishu-connection": "ts-node src/scripts/test-feishu-connection.ts",
+    "test:sync": "ts-node src/scripts/test-sync.ts",
+    "test:sync-flow": "ts-node src/scripts/test-sync-flow.ts",
+    "validate:url": "ts-node src/scripts/validate-bitable-url.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
     "@types/node": "^20.17.46",
     "ts-node": "^10.9.2"
   },
   "dependencies": {
+    "@lark-base-open/node-sdk": "^1.0.1",
+    "@octokit/rest": "^22.0.0",
     "axios": "^1.9.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.5.0",
+    "express": "^5.1.0",
     "typescript": "^5.8.3"
   }
 }

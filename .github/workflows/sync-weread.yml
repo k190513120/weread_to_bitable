@@ -1,0 +1,228 @@
+name: 微信读书同步飞书多维表格
+
+# 触发条件
+on:
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      bitable_url:
+        description: '飞书多维表格链接'
+        required: true
+        type: string
+      personal_base_token:
+        description: '飞书多维表格授权码'
+        required: true
+        type: string
+      weread_cookie:
+        description: '微信读书Cookie'
+        required: true
+        type: string
+      book_id:
+        description: '书籍ID（可选，用于同步单本书籍）'
+        required: false
+        type: string
+      sync_mode:
+        description: '同步模式'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - single
+          - test
+  
+  # 通过repository_dispatch触发
+  repository_dispatch:
+    types: 
+      - sync-all-books
+      - sync-single-book
+      - test-connection
+
+# 环境变量
+env:
+  NODE_VERSION: '18'
+  TIMEZONE: 'Asia/Shanghai'
+
+jobs:
+  sync-weread:
+    name: 同步微信读书到飞书多维表格
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      # 检出代码
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      # 设置Node.js环境
+      - name: 设置Node.js环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      # 安装依赖
+      - name: 安装依赖
+        run: |
+          npm ci
+          echo "依赖安装完成"
+      
+      # 设置时区
+      - name: 设置时区
+        run: |
+          sudo timedatectl set-timezone ${{ env.TIMEZONE }}
+          echo "当前时间: $(date)"
+      
+      # 准备同步参数
+      - name: 准备同步参数
+        id: prepare-params
+        run: |
+          # 从不同触发源获取参数
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "触发方式: 手动触发"
+            echo "BITABLE_URL=${{ github.event.inputs.bitable_url }}" >> $GITHUB_ENV
+            echo "PERSONAL_BASE_TOKEN=${{ github.event.inputs.personal_base_token }}" >> $GITHUB_ENV
+            echo "WEREAD_COOKIE=${{ github.event.inputs.weread_cookie }}" >> $GITHUB_ENV
+            echo "BOOK_ID=${{ github.event.inputs.book_id }}" >> $GITHUB_ENV
+            echo "SYNC_MODE=${{ github.event.inputs.sync_mode }}" >> $GITHUB_ENV
+          elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "触发方式: API触发"
+            echo "事件类型: ${{ github.event.action }}"
+            
+            # 从client_payload中提取参数
+            BITABLE_URL="${{ github.event.client_payload.bitable_url }}"
+            PERSONAL_BASE_TOKEN="${{ github.event.client_payload.personal_base_token }}"
+            WEREAD_COOKIE="${{ github.event.client_payload.weread_cookie }}"
+            BOOK_ID="${{ github.event.client_payload.book_id }}"
+            
+            echo "BITABLE_URL=$BITABLE_URL" >> $GITHUB_ENV
+            echo "PERSONAL_BASE_TOKEN=$PERSONAL_BASE_TOKEN" >> $GITHUB_ENV
+            echo "WEREAD_COOKIE=$WEREAD_COOKIE" >> $GITHUB_ENV
+            echo "BOOK_ID=$BOOK_ID" >> $GITHUB_ENV
+            
+            # 根据事件类型设置同步模式
+            if [ "${{ github.event.action }}" = "sync-single-book" ]; then
+              echo "SYNC_MODE=single" >> $GITHUB_ENV
+            elif [ "${{ github.event.action }}" = "test-connection" ]; then
+              echo "SYNC_MODE=test" >> $GITHUB_ENV
+            else
+              echo "SYNC_MODE=all" >> $GITHUB_ENV
+            fi
+          fi
+          
+          # 验证必要参数
+          if [ -z "$BITABLE_URL" ] || [ -z "$PERSONAL_BASE_TOKEN" ] || [ -z "$WEREAD_COOKIE" ]; then
+            echo "错误: 缺少必要参数"
+            echo "BITABLE_URL: ${BITABLE_URL:0:50}..."
+            echo "PERSONAL_BASE_TOKEN: ${PERSONAL_BASE_TOKEN:0:20}..."
+            echo "WEREAD_COOKIE: ${WEREAD_COOKIE:0:50}..."
+            exit 1
+          fi
+          
+          echo "参数验证通过"
+          echo "同步模式: $SYNC_MODE"
+          if [ -n "$BOOK_ID" ]; then
+            echo "书籍ID: $BOOK_ID"
+          fi
+      
+      # 验证飞书连接
+      - name: 验证飞书连接
+        run: |
+          echo "验证飞书多维表格连接..."
+          npm run test:feishu-connection
+        env:
+          BITABLE_URL: ${{ env.BITABLE_URL }}
+          PERSONAL_BASE_TOKEN: ${{ env.PERSONAL_BASE_TOKEN }}
+      
+      # 执行同步任务
+      - name: 执行同步任务
+        id: sync-task
+        run: |
+          echo "开始执行同步任务..."
+          echo "同步模式: ${{ env.SYNC_MODE }}"
+          
+          case "${{ env.SYNC_MODE }}" in
+            "single")
+              if [ -z "${{ env.BOOK_ID }}" ]; then
+                echo "错误: 单本书籍同步需要提供book_id"
+                exit 1
+              fi
+              echo "同步单本书籍: ${{ env.BOOK_ID }}"
+              npm run sync:single -- --book-id="${{ env.BOOK_ID }}"
+              ;;
+            "test")
+              echo "执行连接测试"
+              npm run test:sync
+              ;;
+            "all"|*)
+              echo "同步所有书籍"
+              npm run sync:all
+              ;;
+          esac
+          
+          echo "同步任务完成"
+        env:
+          BITABLE_URL: ${{ env.BITABLE_URL }}
+          PERSONAL_BASE_TOKEN: ${{ env.PERSONAL_BASE_TOKEN }}
+          WEREAD_COOKIE: ${{ env.WEREAD_COOKIE }}
+          BOOK_ID: ${{ env.BOOK_ID }}
+      
+      # 生成同步报告
+      - name: 生成同步报告
+        if: always()
+        run: |
+          echo "=== 同步任务报告 ==="
+          echo "执行时间: $(date)"
+          echo "触发方式: ${{ github.event_name }}"
+          echo "同步模式: ${{ env.SYNC_MODE }}"
+          if [ -n "${{ env.BOOK_ID }}" ]; then
+            echo "书籍ID: ${{ env.BOOK_ID }}"
+          fi
+          echo "任务状态: ${{ steps.sync-task.outcome }}"
+          
+          # 检查是否有同步日志文件
+          if [ -f "sync-report.json" ]; then
+            echo "同步详情:"
+            cat sync-report.json
+          fi
+          
+          echo "=== 报告结束 ==="
+      
+      # 上传同步日志（如果存在）
+      - name: 上传同步日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-logs-${{ github.run_number }}
+          path: |
+            sync-report.json
+            *.log
+          retention-days: 7
+          if-no-files-found: ignore
+      
+      # 通知同步结果（可选）
+      - name: 同步结果通知
+        if: failure()
+        run: |
+          echo "同步任务失败，请检查日志"
+          echo "错误时间: $(date)"
+          echo "可以通过以下方式查看详细日志:"
+          echo "1. 查看GitHub Actions运行日志"
+          echo "2. 下载同步日志文件"
+          echo "3. 检查飞书多维表格权限配置"
+          echo "4. 验证微信读书Cookie是否有效"
+
+  # 清理任务（可选）
+  cleanup:
+    name: 清理临时文件
+    runs-on: ubuntu-latest
+    needs: sync-weread
+    if: always()
+    
+    steps:
+      - name: 清理工作空间
+        run: |
+          echo "清理任务完成"
+          echo "工作流执行结束: $(date)"
