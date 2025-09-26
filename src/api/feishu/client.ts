@@ -11,8 +11,7 @@ export class FeishuClient {
   constructor(config: FeishuConfig) {
     this.client = new BaseClient({
       appToken: config.appToken,
-      personalBaseToken: config.personalBaseToken,
-      baseURL: 'https://base-api.feishu.cn'
+      personalBaseToken: config.personalBaseToken
     });
     this.tableId = config.tableId;
   }
@@ -178,8 +177,7 @@ export function createFeishuClient(config: FeishuConfig): BaseClient {
   try {
     const client = new BaseClient({
       appToken: config.appToken,
-      personalBaseToken: config.personalBaseToken,
-      baseURL: 'https://base-api.feishu.cn'
+      personalBaseToken: config.personalBaseToken
     });
     
     return client;
