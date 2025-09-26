@@ -157,10 +157,7 @@ export function validateSyncParams(params: any): { isValid: boolean; errors: str
     errors.push('微信读书Cookie格式不正确，必须包含wr_vid和wr_skey');
   }
   
-  // 验证多维表格链接格式
-  if (bitable_url && !bitable_url.includes('feishu.cn/base/') && !bitable_url.includes('larksuite.com/base/')) {
-    errors.push('无效的飞书多维表格链接格式');
-  }
+  // URL格式验证已移除，由parseBitableUrl函数处理
   
   return {
     isValid: errors.length === 0,
