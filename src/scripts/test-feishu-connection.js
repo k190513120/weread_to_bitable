@@ -18,10 +18,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.main = main;
-const dotenv_1 = __importDefault(require("dotenv"));
 const client_1 = require("../api/feishu/client");
-// 加载环境变量
-dotenv_1.default.config();
 /**
  * 解析命令行参数
  */
@@ -51,14 +48,14 @@ function main() {
             console.log(`执行时间: ${new Date().toISOString()}`);
             // 解析命令行参数
             const cmdArgs = parseCommandLineArgs();
-            // 从命令行参数或环境变量获取配置（命令行参数优先）
-            const bitableUrl = cmdArgs.bitable_url || process.env.BITABLE_URL || '';
-            const personalBaseToken = cmdArgs.personal_base_token || process.env.PERSONAL_BASE_TOKEN || '';
-            const wereadCookie = cmdArgs.weread_cookie || process.env.WEREAD_COOKIE || '';
-            console.log('配置来源:');
-            console.log(`- 多维表格URL: ${cmdArgs.bitable_url ? '命令行参数' : '环境变量'}`);
-            console.log(`- 飞书授权码: ${cmdArgs.personal_base_token ? '命令行参数' : '环境变量'}`);
-            console.log(`- 微信读书Cookie: ${cmdArgs.weread_cookie ? '命令行参数' : '环境变量'}`);
+            // 从命令行参数获取配置
+            const bitableUrl = cmdArgs.bitable_url || '';
+            const personalBaseToken = cmdArgs.personal_base_token || '';
+            const wereadCookie = cmdArgs.weread_cookie || '';
+            console.log('配置来源: 命令行参数');
+            console.log(`- 多维表格URL: ${bitableUrl ? '已提供' : '未提供'}`);
+            console.log(`- 飞书授权码: ${personalBaseToken ? '已提供' : '未提供'}`);
+            console.log(`- 微信读书Cookie: ${wereadCookie ? '已提供' : '未提供'}`);
             const syncParams = {
                 bitable_url: bitableUrl,
                 personal_base_token: personalBaseToken,
@@ -70,6 +67,8 @@ function main() {
             if (!validation.isValid) {
                 console.error('❌ 参数验证失败:');
                 validation.errors.forEach(error => console.error(`   - ${error}`));
+                console.error('\n请使用以下格式提供参数:');
+                console.error('node src/scripts/test-feishu-connection.js --bitable_url <URL> --personal_base_token <TOKEN> --weread_cookie <COOKIE>');
                 process.exit(1);
             }
             console.log('✅ 参数验证通过');

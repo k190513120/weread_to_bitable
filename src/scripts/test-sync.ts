@@ -8,17 +8,42 @@
 import { WeReadClient } from '../api/weread/client';
 import { FeishuClient } from '../api/feishu/client';
 
+/**
+ * 解析命令行参数
+ */
+function parseCommandLineArgs() {
+  const args = process.argv.slice(2);
+  const params: { [key: string]: string } = {};
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--')) {
+      const key = arg.substring(2).replace(/-/g, '_');
+      const value = args[i + 1];
+      if (value && !value.startsWith('--')) {
+        params[key] = value;
+        i++; // 跳过下一个参数，因为它是当前参数的值
+      }
+    }
+  }
+  
+  return params;
+}
+
 async function testSync() {
   try {
     console.log('🔍 开始测试同步功能...');
     
-    // 从环境变量获取配置
-    const wereadCookie = process.env.WEREAD_COOKIE;
-    const personalBaseToken = process.env.PERSONAL_BASE_TOKEN;
-    const bitableUrl = process.env.BITABLE_URL;
+    // 从命令行参数获取配置
+    const args = parseCommandLineArgs();
+    const wereadCookie = args.weread_cookie;
+    const personalBaseToken = args.personal_base_token;
+    const bitableUrl = args.bitable_url;
+    
+    console.log('配置来源: 命令行参数');
     
     if (!wereadCookie || !personalBaseToken || !bitableUrl) {
-      throw new Error('缺少必要的环境变量');
+      throw new Error('缺少必要参数\n\n使用方法:\nts-node src/scripts/test-sync.ts --weread_cookie=your_cookie --personal_base_token=your_token --bitable_url=your_url');
     }
     
     console.log('✅ 配置加载成功');

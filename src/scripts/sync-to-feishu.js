@@ -3,7 +3,7 @@
 /**
  * 同步微信读书数据到飞书多维表格
  * 支持全量同步和增量同步
- * 支持命令行参数和环境变量两种配置方式
+ * 仅支持命令行参数配置方式
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -80,16 +80,13 @@ function syncToFeishu() {
             console.log('🚀 开始同步微信读书到飞书多维表格...');
             // 解析命令行参数
             const cmdArgs = parseCommandLineArgs();
-            // 从命令行参数或环境变量获取配置（命令行参数优先）
-            const wereadCookie = cmdArgs.weread_cookie || process.env.WEREAD_COOKIE;
-            const personalBaseToken = cmdArgs.personal_base_token || process.env.PERSONAL_BASE_TOKEN;
-            const bitableUrl = cmdArgs.bitable_url || process.env.BITABLE_URL;
-            console.log('配置来源:');
-            console.log(`- 微信读书Cookie: ${cmdArgs.weread_cookie ? '命令行参数' : '环境变量'}`);
-            console.log(`- 飞书授权码: ${cmdArgs.personal_base_token ? '命令行参数' : '环境变量'}`);
-            console.log(`- 多维表格URL: ${cmdArgs.bitable_url ? '命令行参数' : '环境变量'}`);
+            // 从命令行参数获取配置
+            const wereadCookie = cmdArgs.weread_cookie;
+            const personalBaseToken = cmdArgs.personal_base_token;
+            const bitableUrl = cmdArgs.bitable_url;
+            console.log('配置来源: 命令行参数');
             if (!wereadCookie || !personalBaseToken || !bitableUrl) {
-                throw new Error('缺少必要的配置参数，请通过命令行参数或环境变量提供');
+                throw new Error('缺少必要的配置参数，请通过命令行参数提供');
             }
             console.log('✅ 配置加载成功');
             // 解析飞书链接

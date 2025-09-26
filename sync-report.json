@@ -1,0 +1,5 @@
+{
+  "timestamp": "2025-09-26T09:39:44.101Z",
+  "error": "解析多维表格链接失败: Invalid URL",
+  "stack": "Error: 解析多维表格链接失败: Invalid URL\n    at parseBitableUrl (/Users/bytedance/Downloads/weread_to_bitable/weread-to-notion/src/api/feishu/client.js:147:19)\n    at /Users/bytedance/Downloads/weread_to_bitable/weread-to-notion/src/scripts/sync-to-feishu.ts:57:35\n    at Generator.next (<anonymous>)\n    at fulfilled (/Users/bytedance/Downloads/weread_to_bitable/weread-to-notion/src/scripts/sync-to-feishu.ts:44:58)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"
+}

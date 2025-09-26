@@ -45,17 +45,7 @@ export async function syncBookContentToFeishu(
     const hasUpdates =
       hasHighlightUpdate || hasThoughtUpdate || !useIncremental;
 
-    if (!hasUpdates) {
-      console.log(`《${bookInfo.title}》没有检测到新内容，跳过内容同步`);
-      return {
-        success: true,
-        highlightsSynckey,
-        thoughtsSynckey,
-        hasUpdate: false,
-        highlights: [],
-        thoughts: [],
-      };
-    }
+    console.log(`《${bookInfo.title}》检测结果: 划线更新=${hasHighlightUpdate}, 想法更新=${hasThoughtUpdate}, 全量模式=${!useIncremental}`);
 
     // 格式化划线和想法内容
     let formattedHighlights = '';
@@ -72,17 +62,22 @@ export async function syncBookContentToFeishu(
       
       formattedHighlights = formatHighlightsForFeishu(flatHighlights);
       console.log(`处理划线数据（共 ${flatHighlights.length} 条）`);
+    } else {
+      console.log('没有新的划线数据需要处理');
     }
 
     if (hasThoughtUpdate && thoughts.length > 0) {
       formattedThoughts = formatThoughtsForFeishu(thoughts);
       console.log(`处理想法数据（共 ${thoughts.length} 条）`);
+    } else {
+      console.log('没有新的想法数据需要处理');
     }
 
     // 创建飞书同步服务
     const feishuService = createFeishuSyncService(feishuConfig);
 
-    // 同步到飞书多维表格
+    // 同步到飞书多维表格 - 无论是否有新的划线和想法，都要同步书籍基本信息
+    console.log(`开始同步书籍《${bookInfo.title}》到飞书多维表格...`);
     const syncResult = await feishuService.writeBookToFeishu(
       bookInfo,
       formattedHighlights,
@@ -96,6 +91,11 @@ export async function syncBookContentToFeishu(
       } else {
         console.log('创建了新记录');
       }
+      
+      // 如果没有新的内容更新，但书籍信息同步成功，也算作成功
+      if (!hasUpdates) {
+        console.log('虽然没有新的划线和想法，但书籍基本信息已成功同步');
+      }
     } else {
       console.error(`同步书籍《${bookInfo.title}》到飞书多维表格失败: ${syncResult.message}`);
     }
@@ -104,11 +104,13 @@ export async function syncBookContentToFeishu(
       success: syncResult.success,
       highlightsSynckey,
       thoughtsSynckey,
-      hasUpdate: true,
+      hasUpdate: hasUpdates, // 反映实际的内容更新情况
       highlights,
       thoughts,
+      errorMessage: syncResult.success ? undefined : syncResult.errorMessage || syncResult.message,
     };
   } catch (error: any) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`同步书籍内容到飞书多维表格失败:`, error.message);
     return {
       success: false,
@@ -117,8 +119,17 @@ export async function syncBookContentToFeishu(
       hasUpdate: false,
       highlights: [],
       thoughts: [],
+      errorMessage,
     };
   }
+}
+
+/**
+ * 单本书同步结果
+ */
+interface SingleBookSyncResult {
+  success: boolean;
+  errorMessage?: string;
 }
 
 /**
@@ -129,7 +140,7 @@ export async function syncSingleBookToFeishu(
   cookie: string,
   bookId: string,
   useIncremental: boolean = true
-): Promise<boolean> {
+): Promise<SingleBookSyncResult> {
   console.log(
     `\n=== 开始${useIncremental ? "增量" : "全量"}同步书籍到飞书多维表格(ID: ${bookId}) ===`
   );
@@ -138,8 +149,9 @@ export async function syncSingleBookToFeishu(
     // 获取书籍详细信息
     const bookInfo = await getBookInfo(cookie, bookId);
     if (!bookInfo) {
-      console.error(`未能获取到书籍 ${bookId} 的信息`);
-      return false;
+      const errorMsg = `未能获取到书籍 ${bookId} 的信息`;
+      console.error(errorMsg);
+      return { success: false, errorMessage: errorMsg };
     }
 
     console.log(`书籍信息: ${bookInfo.title} - ${bookInfo.author}`);
@@ -206,13 +218,15 @@ export async function syncSingleBookToFeishu(
     if (syncContentResult.success) {
       console.log(`书籍 ${bookId} 同步到飞书多维表格完成`);
     } else {
-      console.error(`书籍 ${bookId} 同步到飞书多维表格失败`);
+      const errorMsg = syncContentResult.errorMessage || '未知错误';
+      console.error(`书籍 ${bookId} 同步到飞书多维表格失败: ${errorMsg}`);
     }
 
-    return syncContentResult.success;
+    return { success: syncContentResult.success, errorMessage: syncContentResult.errorMessage };
   } catch (error: any) {
-    console.error(`同步书籍 ${bookId} 到飞书多维表格失败:`, error.message);
-    return false;
+    const errorMsg = error.message || String(error);
+    console.error(`同步书籍 ${bookId} 到飞书多维表格失败:`, errorMsg);
+    return { success: false, errorMessage: errorMsg };
   }
 }
 
@@ -232,6 +246,8 @@ export async function batchSyncBooksToFeishu(
   const results: FeishuSyncResult[] = [];
   let successCount = 0;
   let failedCount = 0;
+  const maxRetries = 3;
+  const baseDelay = 1000; // 基础延迟1秒
 
   // 创建飞书同步服务
   const feishuService = createFeishuSyncService(feishuConfig);
@@ -261,48 +277,101 @@ export async function batchSyncBooksToFeishu(
     const bookId = bookIds[i];
     console.log(`\n[${i + 1}/${bookIds.length}] 同步书籍 ${bookId}`);
 
-    try {
-      const success = await syncSingleBookToFeishu(
-        feishuConfig,
-        cookie,
-        bookId,
-        useIncremental
-      );
+    let success = false;
+    let lastError: any = null;
+    
+    // 重试机制
+    for (let retry = 0; retry < maxRetries; retry++) {
+      try {
+        if (retry > 0) {
+          console.log(`第 ${retry + 1} 次重试同步书籍 ${bookId}`);
+          // 重试时增加延迟
+          await new Promise(resolve => setTimeout(resolve, baseDelay * retry));
+        }
 
-      if (success) {
-        successCount++;
-        results.push({
-          success: true,
-          message: '同步成功',
-          updated: true
-        });
-      } else {
-        failedCount++;
-        results.push({
-          success: false,
-          message: '同步失败',
-          updated: false
-        });
-      }
+        const syncResult = await syncSingleBookToFeishu(
+          feishuConfig,
+          cookie,
+          bookId,
+          useIncremental
+        );
 
-      // 添加延迟以避免API限流
-      if (i < bookIds.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+        success = syncResult.success;
+        if (success) {
+          console.log(`书籍 ${bookId} 同步成功`);
+          break; // 成功则跳出重试循环
+        } else {
+          const errorMsg = syncResult.errorMessage || '同步返回失败状态';
+          console.warn(`书籍 ${bookId} 同步失败: ${errorMsg}，准备重试`);
+          lastError = { message: errorMsg, isFromSyncResult: true };
+        }
+      } catch (error: any) {
+        console.error(`同步书籍 ${bookId} 时出错 (第${retry + 1}次尝试):`, error.message);
+        lastError = error;
+        
+        // 如果是API限流错误，增加更长的延迟
+        if (error.message && (error.message.includes('rate limit') || error.message.includes('429'))) {
+          console.log('检测到API限流，增加延迟时间');
+          await new Promise(resolve => setTimeout(resolve, baseDelay * 3));
+        }
       }
-    } catch (error: any) {
-      console.error(`同步书籍 ${bookId} 时出错:`, error.message);
+    }
+
+    // 记录最终结果
+    if (success) {
+      successCount++;
+      results.push({
+        success: true,
+        message: '同步成功',
+        updated: true
+      });
+    } else {
       failedCount++;
+      let errorMessage = '未知错误';
+      let isConnectionError = false;
+      
+      if (lastError) {
+        errorMessage = lastError.message || '未知错误';
+        // 检查是否是连接相关的错误
+        if (errorMessage.includes('连接') || errorMessage.includes('网络') || 
+            errorMessage.includes('timeout') || errorMessage.includes('ECONNREFUSED') ||
+            errorMessage.includes('HTTP错误')) {
+          isConnectionError = true;
+        }
+      }
+      
+      console.error(`书籍 ${bookId} 经过 ${maxRetries} 次重试后仍然失败: ${errorMessage}`);
+      
+      // 根据错误类型设置不同的错误信息
+      const finalMessage = isConnectionError ? 
+        '飞书多维表格连接失败' : 
+        `同步失败: ${errorMessage}`;
+      
       results.push({
         success: false,
-        message: `同步出错: ${error.message}`,
-        updated: false
+        message: finalMessage,
+        updated: false,
+        errorMessage: errorMessage
       });
+    }
+
+    // 添加延迟以避免API限流，成功后延迟较短，失败后延迟较长
+    if (i < bookIds.length - 1) {
+      const delay = success ? baseDelay : baseDelay * 2;
+      console.log(`等待 ${delay}ms 后继续下一本书籍...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 
   console.log(`\n=== 批量同步完成 ===`);
   console.log(`成功: ${successCount}/${bookIds.length}`);
   console.log(`失败: ${failedCount}/${bookIds.length}`);
+  
+  // 输出失败的书籍ID以便调试
+  if (failedCount > 0) {
+    const failedBooks = bookIds.filter((_, index) => !results[index]?.success);
+    console.log(`失败的书籍ID: ${failedBooks.join(', ')}`);
+  }
 
   return {
     success: successCount,

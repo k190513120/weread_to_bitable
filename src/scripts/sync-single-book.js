@@ -18,11 +18,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.main = main;
-const dotenv_1 = __importDefault(require("dotenv"));
 const sync_1 = require("../core/sync");
 const client_1 = require("../api/feishu/client");
-// 加载环境变量
-dotenv_1.default.config();
 /**
  * 解析命令行参数
  */
@@ -36,6 +33,27 @@ function parseArgs() {
         }
         else if (arg === '--book-id' && i + 1 < args.length) {
             result.bookId = args[i + 1];
+            i++;
+        }
+        else if (arg.startsWith('--bitable_url=')) {
+            result.bitable_url = arg.split('=')[1];
+        }
+        else if (arg === '--bitable_url' && i + 1 < args.length) {
+            result.bitable_url = args[i + 1];
+            i++;
+        }
+        else if (arg.startsWith('--personal_base_token=')) {
+            result.personal_base_token = arg.split('=')[1];
+        }
+        else if (arg === '--personal_base_token' && i + 1 < args.length) {
+            result.personal_base_token = args[i + 1];
+            i++;
+        }
+        else if (arg.startsWith('--weread_cookie=')) {
+            result.weread_cookie = arg.split('=')[1];
+        }
+        else if (arg === '--weread_cookie' && i + 1 < args.length) {
+            result.weread_cookie = args[i + 1];
             i++;
         }
         else if (arg === '--full-sync') {
@@ -53,28 +71,35 @@ function main() {
             console.log('=== 开始同步单本书籍到飞书多维表格 ===');
             console.log(`执行时间: ${new Date().toISOString()}`);
             // 解析命令行参数
-            const { bookId, fullSync } = parseArgs();
-            // 从环境变量获取参数
+            const cmdArgs = parseArgs();
+            // 从命令行参数获取参数
             const syncParams = {
-                bitable_url: process.env.BITABLE_URL || '',
-                personal_base_token: process.env.PERSONAL_BASE_TOKEN || '',
-                weread_cookie: process.env.WEREAD_COOKIE || '',
-                book_id: bookId || process.env.BOOK_ID
+                bitable_url: cmdArgs.bitable_url || '',
+                personal_base_token: cmdArgs.personal_base_token || '',
+                weread_cookie: cmdArgs.weread_cookie || '',
+                book_id: cmdArgs.bookId || ''
             };
+            
+            console.log('配置来源: 命令行参数');
+            console.log(`飞书多维表格URL: ${syncParams.bitable_url ? '已提供' : '未提供'}`);
+            console.log(`个人基础令牌: ${syncParams.personal_base_token ? '已提供' : '未提供'}`);
+            console.log(`微信读书Cookie: ${syncParams.weread_cookie ? '已提供' : '未提供'}`);
+            console.log(`书籍ID: ${syncParams.book_id ? '已提供' : '未提供'}`);
             console.log('验证同步参数...');
             // 验证参数
             const validation = (0, client_1.validateSyncParams)(syncParams);
             if (!validation.isValid) {
                 console.error('参数验证失败:');
                 validation.errors.forEach(error => console.error(`- ${error}`));
+                console.error('\n请使用以下格式提供参数:');
+                console.error('node src/scripts/sync-single-book.js --bitable_url <URL> --personal_base_token <TOKEN> --weread_cookie <COOKIE> --book-id <BOOK_ID>');
                 process.exit(1);
             }
             console.log('参数验证通过');
             // 检查书籍ID
             if (!syncParams.book_id) {
                 console.error('错误: 单本书籍同步需要提供书籍ID');
-                console.error('使用方法: npm run sync:single -- --book-id=<BOOK_ID>');
-                console.error('或设置环境变量: BOOK_ID=<BOOK_ID>');
+                console.error('使用方法: node src/scripts/sync-single-book.js --bitable_url <URL> --personal_base_token <TOKEN> --weread_cookie <COOKIE> --book-id <BOOK_ID>');
                 process.exit(1);
             }
             console.log(`目标书籍ID: ${syncParams.book_id}`);
@@ -91,7 +116,7 @@ function main() {
             };
             // 执行单本书籍同步
             console.log('\n开始执行单本书籍同步...');
-            const success = yield (0, sync_1.syncSingleBookToFeishu)(feishuConfig, syncParams.weread_cookie, syncParams.book_id, !fullSync // 如果指定了--full-sync，则使用全量同步(false)，否则使用增量同步(true)
+            const success = yield (0, sync_1.syncSingleBookToFeishu)(feishuConfig, syncParams.weread_cookie, syncParams.book_id, !cmdArgs.fullSync // 如果指定了--full-sync，则使用全量同步(false)，否则使用增量同步(true)
             );
             // 输出同步结果
             console.log('\n=== 同步结果 ===');
@@ -122,7 +147,7 @@ function main() {
             const errorReport = {
                 timestamp: new Date().toISOString(),
                 success: false,
-                bookId: process.env.BOOK_ID || parseArgs().bookId,
+                bookId: parseArgs().bookId || '',
                 error: error.message,
                 stack: error.stack
             };

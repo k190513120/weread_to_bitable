@@ -67,6 +67,7 @@ export interface BookContentSyncResult {
   hasUpdate: boolean;
   highlights: any[];
   thoughts: any[];
+  errorMessage?: string; // 新增：错误信息
 }
 
 /**
@@ -261,4 +262,5 @@ export interface FeishuSyncResult {
   message: string;
   recordId?: string;
   updated: boolean;
+  errorMessage?: string; // 新增：详细错误信息
 }

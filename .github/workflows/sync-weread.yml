@@ -156,7 +156,7 @@ jobs:
           fi
           
           # 使用命令行参数测试连接
-          npm run test:feishu-connection -- --bitable-url "$BITABLE_URL" --personal-base-token "$PERSONAL_BASE_TOKEN" --weread-cookie "$WEREAD_COOKIE"
+          npm run test:feishu-connection -- --bitable_url "$BITABLE_URL" --personal_base_token "$PERSONAL_BASE_TOKEN" --weread_cookie "$WEREAD_COOKIE"
       
       # 执行同步任务
       - name: 执行同步任务
@@ -182,13 +182,13 @@ jobs:
           # 根据同步模式执行不同的同步命令，使用命令行参数
           if [ "$SYNC_MODE" = "single" ]; then
             echo "执行单本书籍同步..."
-            npm run sync:single -- --bitable-url "$BITABLE_URL" --personal-base-token "$PERSONAL_BASE_TOKEN" --weread-cookie "$WEREAD_COOKIE"
+            npm run sync:single -- --bitable_url "$BITABLE_URL" --personal_base_token "$PERSONAL_BASE_TOKEN" --weread_cookie "$WEREAD_COOKIE"
           elif [ "$SYNC_MODE" = "feishu" ]; then
             echo "执行飞书同步..."
-            npm run sync:feishu -- --bitable-url "$BITABLE_URL" --personal-base-token "$PERSONAL_BASE_TOKEN" --weread-cookie "$WEREAD_COOKIE"
+            npm run sync:feishu -- --bitable_url "$BITABLE_URL" --personal_base_token "$PERSONAL_BASE_TOKEN" --weread_cookie "$WEREAD_COOKIE"
           else
             echo "执行全量同步..."
-            npm run sync:all -- --bitable-url "$BITABLE_URL" --personal-base-token "$PERSONAL_BASE_TOKEN" --weread-cookie "$WEREAD_COOKIE"
+            npm run sync:all -- --bitable_url "$BITABLE_URL" --personal_base_token "$PERSONAL_BASE_TOKEN" --weread_cookie "$WEREAD_COOKIE"
           fi
           
           echo "同步任务完成"

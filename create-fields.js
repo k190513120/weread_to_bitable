@@ -5,7 +5,28 @@
  */
 
 const { BaseClient } = require('@lark-base-open/node-sdk');
-require('dotenv').config();
+
+/**
+ * 解析命令行参数
+ */
+function parseCommandLineArgs() {
+  const args = process.argv.slice(2);
+  const params = {};
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--')) {
+      const key = arg.substring(2).replace(/-/g, '_');
+      const value = args[i + 1];
+      if (value && !value.startsWith('--')) {
+        params[key] = value;
+        i++; // 跳过下一个参数，因为它是当前参数的值
+      }
+    }
+  }
+  
+  return params;
+}
 
 // 定义需要创建的字段
 const REQUIRED_FIELDS = [
@@ -160,12 +181,15 @@ async function main() {
     console.log('=== 开始创建飞书多维表格字段 ===');
     console.log(`执行时间: ${new Date().toISOString()}`);
 
-    // 从环境变量获取参数
+    // 从命令行参数获取配置
+    const args = parseCommandLineArgs();
     const syncParams = {
-      bitable_url: process.env.BITABLE_URL || '',
-      personal_base_token: process.env.PERSONAL_BASE_TOKEN || '',
-      weread_cookie: process.env.WEREAD_COOKIE || ''
+      bitable_url: args.bitable_url || '',
+      personal_base_token: args.personal_base_token || '',
+      weread_cookie: args.weread_cookie || ''
     };
+    
+    console.log('配置来源: 命令行参数');
 
     console.log('验证同步参数...');
     
@@ -174,6 +198,8 @@ async function main() {
     if (!validation.isValid) {
       console.error('参数验证失败:');
       validation.errors.forEach(error => console.error(`- ${error}`));
+      console.error('\n使用方法:');
+      console.error('node create-fields.js --bitable_url=your_url --personal_base_token=your_token --weread_cookie=your_cookie');
       process.exit(1);
     }
     console.log('参数验证通过');

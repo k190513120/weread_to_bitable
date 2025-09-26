@@ -4,27 +4,29 @@
  * 直接调用同步函数，不通过GitHub Action
  */
 
-import dotenv from 'dotenv';
 import { batchSyncBooksToFeishu, syncSingleBookToFeishu } from '../core/sync';
 import { parseBitableUrl, validateSyncParams } from '../api/feishu/client';
 import { SyncParams } from '../config/types';
 
-// 加载环境变量
-dotenv.config();
-
 async function testSyncFlow() {
   console.log('\n=== 测试完整同步流程 ===\n');
 
-  // 从环境变量获取配置
-  const bitable_url = process.env.BITABLE_URL;
-  const personal_base_token = process.env.PERSONAL_BASE_TOKEN;
-  const weread_cookie = process.env.WEREAD_COOKIE;
+  // 强制要求所有参数都通过命令行传递
+  const args = process.argv.slice(2);
+  const getArg = (name: string) => {
+      const index = args.indexOf(`--${name}`);
+      return index !== -1 && index + 1 < args.length ? args[index + 1] : '';
+  };
+  
+  const bitable_url = getArg('bitable_url');
+  const personal_base_token = getArg('personal_base_token');
+  const weread_cookie = getArg('weread_cookie');
 
   if (!bitable_url || !personal_base_token || !weread_cookie) {
-    console.error('❌ 缺少必要的环境变量:');
-    console.error('- BITABLE_URL:', !!bitable_url);
-    console.error('- PERSONAL_BASE_TOKEN:', !!personal_base_token);
-    console.error('- WEREAD_COOKIE:', !!weread_cookie);
+    console.error('❌ 缺少必要的命令行参数:');
+    console.error('- --bitable_url:', !!bitable_url);
+    console.error('- --personal_base_token:', !!personal_base_token);
+    console.error('- --weread_cookie:', !!weread_cookie);
     process.exit(1);
   }
 

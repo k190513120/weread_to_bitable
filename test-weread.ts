@@ -1,15 +1,39 @@
-import dotenv from 'dotenv';
 import { refreshSession, getNotebookBooks, getBookshelfBooks } from './src/api/weread/services';
 
-dotenv.config();
+/**
+ * 解析命令行参数
+ */
+function parseCommandLineArgs() {
+  const args = process.argv.slice(2);
+  const params: { [key: string]: string } = {};
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--')) {
+      const key = arg.substring(2).replace(/-/g, '_');
+      const value = args[i + 1];
+      if (value && !value.startsWith('--')) {
+        params[key] = value;
+        i++; // 跳过下一个参数，因为它是当前参数的值
+      }
+    }
+  }
+  
+  return params;
+}
 
 async function testWereadConnection() {
   try {
     console.log('测试微信读书连接...');
-    const cookie = process.env.WEREAD_COOKIE || '';
+    
+    // 从命令行参数获取配置
+    const args = parseCommandLineArgs();
+    const cookie = args.weread_cookie;
+    
+    console.log('配置来源: 命令行参数');
     
     if (!cookie) {
-      throw new Error('WEREAD_COOKIE 环境变量未设置');
+      throw new Error('缺少必要参数 weread_cookie\n\n使用方法:\nts-node test-weread.ts --weread_cookie=your_cookie');
     }
     
     // 刷新会话

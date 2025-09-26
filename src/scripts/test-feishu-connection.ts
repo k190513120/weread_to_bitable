@@ -4,12 +4,8 @@
  * 用于GitHub Action中验证配置是否正确
  */
 
-import dotenv from 'dotenv';
 import { testFeishuConnection, parseBitableUrl, validateSyncParams, createFeishuClient } from '../api/feishu/client';
 import { SyncParams } from '../config/types';
-
-// 加载环境变量
-dotenv.config();
 
 /**
  * 解析命令行参数
@@ -44,15 +40,12 @@ async function main() {
     // 解析命令行参数
     const cmdArgs = parseCommandLineArgs();
     
-    // 从命令行参数或环境变量获取配置（命令行参数优先）
-    const bitableUrl = cmdArgs.bitable_url || process.env.BITABLE_URL || '';
-    const personalBaseToken = cmdArgs.personal_base_token || process.env.PERSONAL_BASE_TOKEN || '';
-    const wereadCookie = cmdArgs.weread_cookie || process.env.WEREAD_COOKIE || '';
+    // 强制要求所有参数都通过命令行传递
+    const bitableUrl = cmdArgs.bitable_url || '';
+    const personalBaseToken = cmdArgs.personal_base_token || '';
+    const wereadCookie = cmdArgs.weread_cookie || '';
     
-    console.log('配置来源:');
-    console.log(`- 多维表格URL: ${cmdArgs.bitable_url ? '命令行参数' : '环境变量'}`);
-    console.log(`- 飞书授权码: ${cmdArgs.personal_base_token ? '命令行参数' : '环境变量'}`);
-    console.log(`- 微信读书Cookie: ${cmdArgs.weread_cookie ? '命令行参数' : '环境变量'}`);
+    console.log('配置来源: 全部通过API接口传递（命令行参数）');
     
     const syncParams: SyncParams = {
       bitable_url: bitableUrl,

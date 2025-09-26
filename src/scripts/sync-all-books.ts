@@ -5,14 +5,10 @@
  * 支持命令行参数和环境变量两种配置方式
  */
 
-import dotenv from 'dotenv';
 import { batchSyncBooksToFeishu } from '../core/sync';
 import { parseBitableUrl, validateSyncParams } from '../api/feishu/client';
 import { SyncParams } from '../config/types';
 import { refreshSession, getNotebookBooks, getBookshelfBooks } from '../api/weread/services';
-
-// 加载环境变量
-dotenv.config();
 
 /**
  * 解析命令行参数
@@ -47,17 +43,14 @@ async function main() {
     // 解析命令行参数
     const cmdArgs = parseCommandLineArgs();
     
-    // 从命令行参数或环境变量获取参数（命令行参数优先）
+    // 强制要求所有参数都通过命令行传递
     const syncParams: SyncParams = {
-      bitable_url: cmdArgs.bitable_url || process.env.BITABLE_URL || '',
-      personal_base_token: cmdArgs.personal_base_token || process.env.PERSONAL_BASE_TOKEN || '',
-      weread_cookie: cmdArgs.weread_cookie || process.env.WEREAD_COOKIE || ''
+      bitable_url: cmdArgs.bitable_url || '',
+      personal_base_token: cmdArgs.personal_base_token || '',
+      weread_cookie: cmdArgs.weread_cookie || ''
     };
     
-    console.log('配置来源:');
-    console.log(`- 微信读书Cookie: ${cmdArgs.weread_cookie ? '命令行参数' : '环境变量'}`);
-    console.log(`- 飞书授权码: ${cmdArgs.personal_base_token ? '命令行参数' : '环境变量'}`);
-    console.log(`- 多维表格URL: ${cmdArgs.bitable_url ? '命令行参数' : '环境变量'}`);
+    console.log('配置来源: 全部通过API接口传递（命令行参数）');
     console.log(`- 多维表格URL: ${syncParams.bitable_url.substring(0, 50)}...`);
     console.log(`- 授权码: ${syncParams.personal_base_token.substring(0, 20)}...`);
     console.log(`- Cookie长度: ${syncParams.weread_cookie.length} 字符`);

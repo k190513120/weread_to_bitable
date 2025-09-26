@@ -4,34 +4,32 @@
  * 用于GitHub Action中的单本书籍同步任务
  */
 
-import dotenv from 'dotenv';
 import { syncSingleBookToFeishu } from '../core/sync';
 import { parseBitableUrl, validateSyncParams } from '../api/feishu/client';
 import { SyncParams } from '../config/types';
 
-// 加载环境变量
-dotenv.config();
-
 /**
  * 解析命令行参数
  */
-function parseArgs(): { bookId?: string; fullSync?: boolean } {
+function parseCommandLineArgs() {
   const args = process.argv.slice(2);
-  const result: { bookId?: string; fullSync?: boolean } = {};
+  const params: any = {};
   
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg.startsWith('--book-id=')) {
-      result.bookId = arg.split('=')[1];
-    } else if (arg === '--book-id' && i + 1 < args.length) {
-      result.bookId = args[i + 1];
-      i++;
-    } else if (arg === '--full-sync') {
-      result.fullSync = true;
+    if (arg.startsWith('--')) {
+      const key = arg.substring(2).replace(/-/g, '_');
+      const value = args[i + 1];
+      if (value && !value.startsWith('--')) {
+        params[key] = value;
+        i++; // 跳过下一个参数，因为它是当前参数的值
+      } else if (arg === '--full-sync') {
+        params.full_sync = true;
+      }
     }
   }
   
-  return result;
+  return params;
 }
 
 /**
@@ -43,15 +41,17 @@ async function main() {
     console.log(`执行时间: ${new Date().toISOString()}`);
 
     // 解析命令行参数
-    const { bookId, fullSync } = parseArgs();
+    const cmdArgs = parseCommandLineArgs();
     
-    // 从环境变量获取参数
+    // 强制要求所有参数都通过命令行传递
     const syncParams: SyncParams = {
-      bitable_url: process.env.BITABLE_URL || '',
-      personal_base_token: process.env.PERSONAL_BASE_TOKEN || '',
-      weread_cookie: process.env.WEREAD_COOKIE || '',
-      book_id: bookId || process.env.BOOK_ID
+      bitable_url: cmdArgs.bitable_url || '',
+      personal_base_token: cmdArgs.personal_base_token || '',
+      weread_cookie: cmdArgs.weread_cookie || '',
+      book_id: cmdArgs.book_id || ''
     };
+    
+    console.log('配置来源: 全部通过API接口传递（命令行参数）');
 
     console.log('验证同步参数...');
     
@@ -67,8 +67,7 @@ async function main() {
     // 检查书籍ID
     if (!syncParams.book_id) {
       console.error('错误: 单本书籍同步需要提供书籍ID');
-      console.error('使用方法: npm run sync:single -- --book-id=<BOOK_ID>');
-      console.error('或设置环境变量: BOOK_ID=<BOOK_ID>');
+      console.error('使用方法: npm run sync:single -- --book-id <BOOK_ID>');
       process.exit(1);
     }
 
@@ -93,7 +92,7 @@ async function main() {
       feishuConfig,
       syncParams.weread_cookie,
       syncParams.book_id!,
-      !fullSync // 如果指定了--full-sync，则使用全量同步(false)，否则使用增量同步(true)
+      !cmdArgs.full_sync // 如果指定了--full-sync，则使用全量同步(false)，否则使用增量同步(true)
     );
 
     // 输出同步结果
@@ -131,7 +130,7 @@ async function main() {
     const errorReport = {
       timestamp: new Date().toISOString(),
       success: false,
-      bookId: process.env.BOOK_ID || parseArgs().bookId,
+      bookId: parseCommandLineArgs().book_id,
       error: error.message,
       stack: error.stack
     };

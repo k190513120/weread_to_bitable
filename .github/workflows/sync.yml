@@ -24,14 +24,12 @@ jobs:
     - name: 安装依赖
       run: npm ci
       
-    - name: 创建环境变量文件
-      run: |
-        echo "BITABLE_URL=${{ secrets.BITABLE_URL }}" >> .env
-        echo "PERSONAL_BASE_TOKEN=${{ secrets.PERSONAL_BASE_TOKEN }}" >> .env
-        echo "WEREAD_COOKIE=${{ secrets.WEREAD_COOKIE }}" >> .env
-        
     - name: 运行同步脚本
-      run: npx ts-node src/scripts/sync-all-books.ts
+      run: |
+        npx ts-node src/scripts/sync-all-books.ts \
+          --bitable_url "${{ secrets.BITABLE_URL }}" \
+          --personal_base_token "${{ secrets.PERSONAL_BASE_TOKEN }}" \
+          --weread_cookie "${{ secrets.WEREAD_COOKIE }}"
       
     - name: 上传同步报告
       if: always()
