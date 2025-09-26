@@ -91,16 +91,17 @@ jobs:
             echo "触发方式: API触发"
             echo "事件类型: ${{ github.event.action }}"
             
-            # 从client_payload中提取参数
-            BITABLE_URL="${{ github.event.client_payload.bitable_url }}"
-            PERSONAL_BASE_TOKEN="${{ github.event.client_payload.personal_base_token }}"
-            WEREAD_COOKIE="${{ github.event.client_payload.weread_cookie }}"
-            BOOK_ID="${{ github.event.client_payload.book_id }}"
+            # 直接从client_payload中提取参数并设置到环境变量
+            echo "BITABLE_URL=${{ github.event.client_payload.bitable_url }}" >> $GITHUB_ENV
+            echo "PERSONAL_BASE_TOKEN=${{ github.event.client_payload.personal_base_token }}" >> $GITHUB_ENV
+            echo "WEREAD_COOKIE=${{ github.event.client_payload.weread_cookie }}" >> $GITHUB_ENV
+            echo "BOOK_ID=${{ github.event.client_payload.book_id }}" >> $GITHUB_ENV
             
-            echo "BITABLE_URL=$BITABLE_URL" >> $GITHUB_ENV
-            echo "PERSONAL_BASE_TOKEN=$PERSONAL_BASE_TOKEN" >> $GITHUB_ENV
-            echo "WEREAD_COOKIE=$WEREAD_COOKIE" >> $GITHUB_ENV
-            echo "BOOK_ID=$BOOK_ID" >> $GITHUB_ENV
+            # 调试输出（隐藏敏感信息）
+            echo "接收到的参数:"
+            echo "BITABLE_URL: ${{ github.event.client_payload.bitable_url }}"
+            echo "PERSONAL_BASE_TOKEN: ${PERSONAL_BASE_TOKEN:0:20}..."
+            echo "WEREAD_COOKIE: ${WEREAD_COOKIE:0:50}..."
             
             # 根据事件类型设置同步模式
             if [ "${{ github.event.action }}" = "sync-single-book" ]; then
@@ -113,18 +114,20 @@ jobs:
           fi
           
           # 验证必要参数
-          if [ -z "$BITABLE_URL" ] || [ -z "$PERSONAL_BASE_TOKEN" ] || [ -z "$WEREAD_COOKIE" ]; then
+          echo "验证参数..."
+          echo "BITABLE_URL: ${{ env.BITABLE_URL }}"
+          echo "PERSONAL_BASE_TOKEN: 已设置"
+          echo "WEREAD_COOKIE: 已设置"
+          
+          if [ -z "${{ env.BITABLE_URL }}" ] || [ -z "${{ env.PERSONAL_BASE_TOKEN }}" ] || [ -z "${{ env.WEREAD_COOKIE }}" ]; then
             echo "错误: 缺少必要参数"
-            echo "BITABLE_URL: ${BITABLE_URL:0:50}..."
-            echo "PERSONAL_BASE_TOKEN: ${PERSONAL_BASE_TOKEN:0:20}..."
-            echo "WEREAD_COOKIE: ${WEREAD_COOKIE:0:50}..."
             exit 1
           fi
           
           echo "参数验证通过"
-          echo "同步模式: $SYNC_MODE"
-          if [ -n "$BOOK_ID" ]; then
-            echo "书籍ID: $BOOK_ID"
+          echo "同步模式: ${{ env.SYNC_MODE }}"
+          if [ -n "${{ env.BOOK_ID }}" ]; then
+            echo "书籍ID: ${{ env.BOOK_ID }}"
           fi
       
       # 验证飞书连接
