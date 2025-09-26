@@ -8,20 +8,37 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const dotenv_1 = __importDefault(require("dotenv"));
 const services_1 = require("./src/api/weread/services");
-dotenv_1.default.config();
+/**
+ * 解析命令行参数
+ */
+function parseCommandLineArgs() {
+    const args = process.argv.slice(2);
+    const params = {};
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (arg.startsWith('--')) {
+            const key = arg.substring(2).replace(/-/g, '_');
+            const value = args[i + 1];
+            if (value && !value.startsWith('--')) {
+                params[key] = value;
+                i++; // 跳过下一个参数，因为它是当前参数的值
+            }
+        }
+    }
+    return params;
+}
 function testWereadConnection() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             console.log('测试微信读书连接...');
-            const cookie = process.env.WEREAD_COOKIE || '';
+            // 从命令行参数获取配置
+            const args = parseCommandLineArgs();
+            const cookie = args.weread_cookie;
+            console.log('配置来源: 命令行参数');
             if (!cookie) {
-                throw new Error('WEREAD_COOKIE 环境变量未设置');
+                throw new Error('缺少必要参数 weread_cookie\n\n使用方法:\nts-node test-weread.ts --weread_cookie=your_cookie');
             }
             // 刷新会话
             const newCookie = yield (0, services_1.refreshSession)(cookie);

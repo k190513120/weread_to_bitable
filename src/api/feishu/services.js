@@ -66,25 +66,49 @@ class FeishuSyncService {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 console.log(`开始同步书籍到飞书: ${book.title}`);
+                console.log(`书籍详情: 作者=${book.author}, ISBN=${book.isbn}, 分类=${book.category}`);
+                // 验证必要字段
+                if (!book.title) {
+                    throw new Error('书籍标题不能为空');
+                }
                 // 转换为飞书记录格式
                 const feishuRecord = (0, models_1.convertBookToFeishuRecord)(book, highlights, thoughts);
+                console.log(`构建的记录数据字段数量: ${Object.keys(feishuRecord.fields).length}`);
+                console.log(`划线内容长度: ${highlights ? highlights.length : 0}, 想法内容长度: ${thoughts ? thoughts.length : 0}`);
                 // 检查书籍是否已存在
+                console.log('检查书籍是否已存在...');
                 const existingRecordId = yield this.checkBookExistsInFeishu(book.title || '', book.author || '');
                 if (existingRecordId) {
+                    console.log(`找到现有记录，ID: ${existingRecordId}，准备更新`);
                     // 更新现有记录
                     return yield this.updateBookRecord(existingRecordId, feishuRecord);
                 }
                 else {
+                    console.log('未找到现有记录，准备创建新记录');
                     // 创建新记录
                     return yield this.createBookRecord(feishuRecord);
                 }
             }
             catch (error) {
                 console.error('写入书籍到飞书时出错:', error);
+                console.error('错误详情:', {
+                    message: error.message,
+                    code: error.code,
+                    status: error.status,
+                    stack: error.stack
+                });
+                let errorMessage = '未知错误';
+                if (error instanceof Error) {
+                    errorMessage = error.message;
+                }
+                else if (typeof error === 'string') {
+                    errorMessage = error;
+                }
                 return {
                     success: false,
-                    message: `同步失败: ${error instanceof Error ? error.message : '未知错误'}`,
-                    updated: false
+                    message: `同步失败: ${errorMessage}`,
+                    updated: false,
+                    errorMessage: errorMessage
                 };
             }
         });
@@ -98,7 +122,11 @@ class FeishuSyncService {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             try {
-                console.log('创建新的书籍记录');
+                console.log('正在调用飞书API创建新记录...');
+                console.log('请求参数:', {
+                    table_id: this.tableId ? `${this.tableId.substring(0, 10)}...` : 'null',
+                    fields_count: Object.keys(record.fields).length
+                });
                 console.log('记录字段:', JSON.stringify(record.fields, null, 2));
                 const response = yield this.client.base.appTableRecord.create({
                     path: { table_id: this.tableId },
@@ -106,7 +134,13 @@ class FeishuSyncService {
                         fields: record.fields
                     }
                 });
-                console.log('API响应:', JSON.stringify(response, null, 2));
+                console.log('飞书API响应:', {
+                    success: response.code === 0,
+                    code: response.code,
+                    msg: response.msg,
+                    data: response.data ? 'exists' : 'null'
+                });
+                console.log('完整API响应:', JSON.stringify(response, null, 2));
                 // 检查不同的响应结构
                 let recordId = null;
                 if ((_b = (_a = response.data) === null || _a === void 0 ? void 0 : _a.record) === null || _b === void 0 ? void 0 : _b.record_id) {
@@ -114,7 +148,13 @@ class FeishuSyncService {
                 }
                 if (!recordId) {
                     console.error('未找到记录ID，响应结构:', response);
-                    throw new Error('创建记录失败：未返回记录ID');
+                    const errorMsg = `创建记录失败：未返回记录ID (code: ${response.code}, msg: ${response.msg})`;
+                    return {
+                        success: false,
+                        message: errorMsg,
+                        updated: false,
+                        errorMessage: errorMsg
+                    };
                 }
                 console.log(`成功创建书籍记录: ${recordId}`);
                 return {
@@ -126,7 +166,28 @@ class FeishuSyncService {
             }
             catch (error) {
                 console.error('创建书籍记录时出错:', error);
-                throw error;
+                console.error('错误类型:', typeof error);
+                let errorMessage = '创建记录时发生未知错误';
+                if (error.response) {
+                    console.error('HTTP响应错误:', {
+                        status: error.response.status,
+                        statusText: error.response.statusText,
+                        data: error.response.data
+                    });
+                    errorMessage = `HTTP错误 ${error.response.status}: ${error.response.statusText}`;
+                }
+                else if (error instanceof Error) {
+                    errorMessage = error.message;
+                }
+                else if (typeof error === 'string') {
+                    errorMessage = error;
+                }
+                return {
+                    success: false,
+                    message: `创建记录失败: ${errorMessage}`,
+                    updated: false,
+                    errorMessage: errorMessage
+                };
             }
         });
     }
@@ -150,7 +211,13 @@ class FeishuSyncService {
                 });
                 const existingRecord = (_a = response.data) === null || _a === void 0 ? void 0 : _a.record;
                 if (!existingRecord) {
-                    throw new Error('找不到要更新的记录');
+                    const errorMsg = '找不到要更新的记录';
+                    return {
+                        success: false,
+                        message: errorMsg,
+                        updated: false,
+                        errorMessage: errorMsg
+                    };
                 }
                 // 检查是否需要更新
                 const existingFeishuRecord = {
@@ -166,8 +233,14 @@ class FeishuSyncService {
                         updated: false
                     };
                 }
+                console.log('正在调用飞书API更新记录...');
+                console.log('更新参数:', {
+                    record_id: recordId ? `${recordId.substring(0, 10)}...` : 'null',
+                    table_id: this.tableId ? `${this.tableId.substring(0, 10)}...` : 'null',
+                    fields_count: Object.keys(newRecord.fields).length
+                });
                 // 执行更新
-                yield this.client.base.appTableRecord.update({
+                const updateResponse = yield this.client.base.appTableRecord.update({
                     path: {
                         table_id: this.tableId,
                         record_id: recordId
@@ -175,6 +248,12 @@ class FeishuSyncService {
                     data: {
                         fields: newRecord.fields
                     }
+                });
+                console.log('飞书API更新响应:', {
+                    success: updateResponse.code === 0,
+                    code: updateResponse.code,
+                    msg: updateResponse.msg,
+                    data: updateResponse.data ? 'exists' : 'null'
                 });
                 console.log(`成功更新书籍记录: ${recordId}`);
                 return {
@@ -186,7 +265,28 @@ class FeishuSyncService {
             }
             catch (error) {
                 console.error('更新书籍记录时出错:', error);
-                throw error;
+                console.error('错误类型:', typeof error);
+                let errorMessage = '更新记录时发生未知错误';
+                if (error.response) {
+                    console.error('HTTP响应错误:', {
+                        status: error.response.status,
+                        statusText: error.response.statusText,
+                        data: error.response.data
+                    });
+                    errorMessage = `HTTP错误 ${error.response.status}: ${error.response.statusText}`;
+                }
+                else if (error instanceof Error) {
+                    errorMessage = error.message;
+                }
+                else if (typeof error === 'string') {
+                    errorMessage = error;
+                }
+                return {
+                    success: false,
+                    message: `更新记录失败: ${errorMessage}`,
+                    updated: false,
+                    errorMessage: errorMessage
+                };
             }
         });
     }
@@ -200,27 +300,68 @@ class FeishuSyncService {
     batchSyncBooks(books_1) {
         return __awaiter(this, arguments, void 0, function* (books, highlightsMap = new Map(), thoughtsMap = new Map()) {
             const results = [];
+            const maxRetries = 3;
+            const baseDelay = 500;
             console.log(`开始批量同步 ${books.length} 本书籍`);
-            for (const book of books) {
-                try {
-                    const bookId = book.bookId || book.id || '';
-                    const highlights = highlightsMap.get(bookId);
-                    const thoughts = thoughtsMap.get(bookId);
-                    const result = yield this.writeBookToFeishu(book, highlights, thoughts);
-                    results.push(result);
-                    // 添加延迟以避免API限流
-                    yield this.delay(100);
+            for (let i = 0; i < books.length; i++) {
+                const book = books[i];
+                let success = false;
+                let lastError = null;
+                console.log(`[${i + 1}/${books.length}] 处理书籍: ${book.title}`);
+                // 重试机制
+                for (let retry = 0; retry < maxRetries; retry++) {
+                    try {
+                        if (retry > 0) {
+                            console.log(`第 ${retry + 1} 次重试同步书籍: ${book.title}`);
+                            yield this.delay(baseDelay * retry);
+                        }
+                        const bookId = book.bookId || book.id || '';
+                        const highlights = highlightsMap.get(bookId);
+                        const thoughts = thoughtsMap.get(bookId);
+                        const result = yield this.writeBookToFeishu(book, highlights, thoughts);
+                        results.push(result);
+                        if (result.success) {
+                            success = true;
+                            console.log(`书籍 ${book.title} 同步成功`);
+                            break;
+                        }
+                        else {
+                            lastError = new Error(result.message || '同步失败');
+                            console.warn(`书籍 ${book.title} 同步失败: ${result.message}`);
+                        }
+                    }
+                    catch (error) {
+                        console.error(`同步书籍 ${book.title} 时出错 (第${retry + 1}次尝试):`, error.message);
+                        lastError = error;
+                        // 检查是否是API限流错误
+                        if (this.isRateLimitError(error)) {
+                            console.log('检测到API限流，增加延迟时间');
+                            yield this.delay(baseDelay * 3);
+                        }
+                    }
                 }
-                catch (error) {
-                    console.error(`同步书籍 ${book.title} 时出错:`, error);
+                // 如果所有重试都失败了，添加失败结果
+                if (!success) {
+                    const errorMessage = lastError ? lastError.message : '未知错误';
+                    console.error(`书籍 ${book.title} 经过 ${maxRetries} 次重试后仍然失败: ${errorMessage}`);
                     results.push({
                         success: false,
-                        message: `同步 ${book.title} 失败: ${error instanceof Error ? error.message : '未知错误'}`,
+                        message: `同步 ${book.title} 失败 (${maxRetries}次重试): ${errorMessage}`,
                         updated: false
                     });
                 }
+                // 添加延迟以避免API限流
+                if (i < books.length - 1) {
+                    const delay = success ? baseDelay : baseDelay * 2;
+                    yield this.delay(delay);
+                }
             }
-            console.log(`批量同步完成，成功: ${results.filter(r => r.success).length}/${results.length}`);
+            const successCount = results.filter(r => r.success).length;
+            console.log(`批量同步完成，成功: ${successCount}/${results.length}`);
+            if (successCount < results.length) {
+                const failedBooks = books.filter((_, index) => { var _a; return !((_a = results[index]) === null || _a === void 0 ? void 0 : _a.success); }).map(b => b.title);
+                console.log(`失败的书籍: ${failedBooks.join(', ')}`);
+            }
             return results;
         });
     }
@@ -276,6 +417,22 @@ class FeishuSyncService {
      */
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    /**
+     * 检查是否是API限流错误
+     * @param error 错误对象
+     * @returns 是否是限流错误
+     */
+    isRateLimitError(error) {
+        if (!error)
+            return false;
+        const message = error.message || '';
+        const code = error.code || error.status || 0;
+        return (code === 429 ||
+            message.includes('rate limit') ||
+            message.includes('too many requests') ||
+            message.includes('频率限制') ||
+            message.includes('请求过于频繁'));
     }
     /**
      * 获取表格字段信息

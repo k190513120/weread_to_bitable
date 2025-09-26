@@ -3,6 +3,7 @@
 /**
  * 自动创建飞书多维表格字段
  * 为微信读书同步创建必要的表格字段
+ * 使用方法: npx ts-node src/scripts/setup-feishu-fields.ts --bitable_url=<URL> --personal_base_token=<TOKEN> --weread_cookie=<COOKIE>
  */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -13,15 +14,32 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.main = main;
-const dotenv_1 = __importDefault(require("dotenv"));
 const client_1 = require("../api/feishu/client");
-// 加载环境变量
-dotenv_1.default.config();
+/**
+ * 解析命令行参数
+ */
+function parseCommandLineArgs() {
+    const args = process.argv.slice(2);
+    const params = {};
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (arg.startsWith('--')) {
+            const key = arg.substring(2).replace(/-/g, '_');
+            const value = args[i + 1];
+            if (value && !value.startsWith('--')) {
+                params[key] = value;
+                i++; // 跳过下一个参数，因为它是当前参数的值
+            }
+        }
+    }
+    return {
+        bitable_url: params.bitable_url || '',
+        personal_base_token: params.personal_base_token || '',
+        weread_cookie: params.weread_cookie || ''
+    };
+}
 // 定义需要创建的字段
 const REQUIRED_FIELDS = [
     {
@@ -137,18 +155,25 @@ function main() {
         try {
             console.log('=== 开始创建飞书多维表格字段 ===');
             console.log(`执行时间: ${new Date().toISOString()}`);
-            // 从环境变量获取参数
+            // 从命令行参数获取参数
+            const cmdArgs = parseCommandLineArgs();
             const syncParams = {
-                bitable_url: process.env.BITABLE_URL || '',
-                personal_base_token: process.env.PERSONAL_BASE_TOKEN || '',
-                weread_cookie: process.env.WEREAD_COOKIE || ''
+                bitable_url: cmdArgs.bitable_url,
+                personal_base_token: cmdArgs.personal_base_token,
+                weread_cookie: cmdArgs.weread_cookie
             };
+            console.log('配置来源: 命令行参数');
+            console.log(`飞书多维表格URL: ${syncParams.bitable_url ? '已提供' : '未提供'}`);
+            console.log(`个人基础令牌: ${syncParams.personal_base_token ? '已提供' : '未提供'}`);
+            console.log(`微信读书Cookie: ${syncParams.weread_cookie ? '已提供' : '未提供'}`);
             console.log('验证同步参数...');
             // 验证参数
             const validation = (0, client_1.validateSyncParams)(syncParams);
             if (!validation.isValid) {
                 console.error('参数验证失败:');
                 validation.errors.forEach(error => console.error(`- ${error}`));
+                console.error('\n请使用以下格式提供参数:');
+                console.error('npx ts-node src/scripts/setup-feishu-fields.ts --bitable_url=<URL> --personal_base_token=<TOKEN> --weread_cookie=<COOKIE>');
                 process.exit(1);
             }
             console.log('参数验证通过');

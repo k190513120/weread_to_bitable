@@ -152,7 +152,7 @@ export class FeishuSyncService {
       });
       
       console.log('飞书API响应:', {
-        success: response.success,
+        success: response.code === 0,
         code: response.code,
         msg: response.msg,
         data: response.data ? 'exists' : 'null'
@@ -277,7 +277,7 @@ export class FeishuSyncService {
       });
       
       console.log('飞书API更新响应:', {
-        success: updateResponse.success,
+        success: updateResponse.code === 0,
         code: updateResponse.code,
         msg: updateResponse.msg,
         data: updateResponse.data ? 'exists' : 'null'

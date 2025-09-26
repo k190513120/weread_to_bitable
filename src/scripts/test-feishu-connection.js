@@ -13,9 +13,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.main = main;
 const client_1 = require("../api/feishu/client");
@@ -48,14 +45,11 @@ function main() {
             console.log(`执行时间: ${new Date().toISOString()}`);
             // 解析命令行参数
             const cmdArgs = parseCommandLineArgs();
-            // 从命令行参数获取配置
+            // 强制要求所有参数都通过命令行传递
             const bitableUrl = cmdArgs.bitable_url || '';
             const personalBaseToken = cmdArgs.personal_base_token || '';
             const wereadCookie = cmdArgs.weread_cookie || '';
-            console.log('配置来源: 命令行参数');
-            console.log(`- 多维表格URL: ${bitableUrl ? '已提供' : '未提供'}`);
-            console.log(`- 飞书授权码: ${personalBaseToken ? '已提供' : '未提供'}`);
-            console.log(`- 微信读书Cookie: ${wereadCookie ? '已提供' : '未提供'}`);
+            console.log('配置来源: 全部通过API接口传递（命令行参数）');
             const syncParams = {
                 bitable_url: bitableUrl,
                 personal_base_token: personalBaseToken,
@@ -67,8 +61,6 @@ function main() {
             if (!validation.isValid) {
                 console.error('❌ 参数验证失败:');
                 validation.errors.forEach(error => console.error(`   - ${error}`));
-                console.error('\n请使用以下格式提供参数:');
-                console.error('node src/scripts/test-feishu-connection.js --bitable_url <URL> --personal_base_token <TOKEN> --weread_cookie <COOKIE>');
                 process.exit(1);
             }
             console.log('✅ 参数验证通过');

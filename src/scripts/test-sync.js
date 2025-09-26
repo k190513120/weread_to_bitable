@@ -55,56 +55,32 @@ const client_2 = require("../api/feishu/client");
  */
 function parseCommandLineArgs() {
     const args = process.argv.slice(2);
-    const result = {};
+    const params = {};
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
-        if (arg.startsWith('--bitable_url=')) {
-            result.bitable_url = arg.split('=')[1];
-        }
-        else if (arg === '--bitable_url' && i + 1 < args.length) {
-            result.bitable_url = args[i + 1];
-            i++;
-        }
-        else if (arg.startsWith('--personal_base_token=')) {
-            result.personal_base_token = arg.split('=')[1];
-        }
-        else if (arg === '--personal_base_token' && i + 1 < args.length) {
-            result.personal_base_token = args[i + 1];
-            i++;
-        }
-        else if (arg.startsWith('--weread_cookie=')) {
-            result.weread_cookie = arg.split('=')[1];
-        }
-        else if (arg === '--weread_cookie' && i + 1 < args.length) {
-            result.weread_cookie = args[i + 1];
-            i++;
+        if (arg.startsWith('--')) {
+            const key = arg.substring(2).replace(/-/g, '_');
+            const value = args[i + 1];
+            if (value && !value.startsWith('--')) {
+                params[key] = value;
+                i++; // 跳过下一个参数，因为它是当前参数的值
+            }
         }
     }
-    return result;
+    return params;
 }
 function testSync() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             console.log('🔍 开始测试同步功能...');
             // 从命令行参数获取配置
-            const cmdArgs = parseCommandLineArgs();
-            const wereadCookie = cmdArgs.weread_cookie;
-            const personalBaseToken = cmdArgs.personal_base_token;
-            const bitableUrl = cmdArgs.bitable_url;
-            
+            const args = parseCommandLineArgs();
+            const wereadCookie = args.weread_cookie;
+            const personalBaseToken = args.personal_base_token;
+            const bitableUrl = args.bitable_url;
             console.log('配置来源: 命令行参数');
-            console.log(`飞书多维表格URL: ${bitableUrl ? '已提供' : '未提供'}`);
-            console.log(`个人基础令牌: ${personalBaseToken ? '已提供' : '未提供'}`);
-            console.log(`微信读书Cookie: ${wereadCookie ? '已提供' : '未提供'}`);
-            
             if (!wereadCookie || !personalBaseToken || !bitableUrl) {
-                console.error('❌ 缺少必要的参数:');
-                console.error('- weread_cookie:', !!wereadCookie);
-                console.error('- personal_base_token:', !!personalBaseToken);
-                console.error('- bitable_url:', !!bitableUrl);
-                console.error('\n请使用以下格式提供参数:');
-                console.error('node src/scripts/test-sync.js --bitable_url <URL> --personal_base_token <TOKEN> --weread_cookie <COOKIE>');
-                throw new Error('缺少必要的参数');
+                throw new Error('缺少必要参数\n\n使用方法:\nts-node src/scripts/test-sync.ts --weread_cookie=your_cookie --personal_base_token=your_token --bitable_url=your_url');
             }
             console.log('✅ 配置加载成功');
             // 测试微信读书连接

@@ -149,8 +149,10 @@ export async function syncSingleBookToFeishu(
     // 获取书籍详细信息
     const bookInfo = await getBookInfo(cookie, bookId);
     if (!bookInfo) {
-      const errorMsg = `未能获取到书籍 ${bookId} 的信息`;
-      console.error(errorMsg);
+      const errorMsg = `获取书籍信息失败: Request failed with status code 499`;
+      console.error(`未能获取到书籍 ${bookId} 的信息`);
+      // 对于获取书籍信息失败的情况，我们仍然记录错误但不中断整个批量同步
+      // 这样可以确保其他书籍的同步不受影响
       return { success: false, errorMessage: errorMsg };
     }
 
@@ -302,8 +304,24 @@ export async function batchSyncBooksToFeishu(
           break; // 成功则跳出重试循环
         } else {
           const errorMsg = syncResult.errorMessage || '同步返回失败状态';
-          console.warn(`书籍 ${bookId} 同步失败: ${errorMsg}，准备重试`);
+          console.warn(`书籍 ${bookId} 同步失败: ${errorMsg}`);
           lastError = { message: errorMsg, isFromSyncResult: true };
+          
+          // 对于某些特定错误，不进行重试
+          if (errorMsg.includes('499') || errorMsg.includes('获取书籍信息失败')) {
+            console.log(`书籍 ${bookId} 遇到网络错误(499)，跳过重试直接处理下一本书籍`);
+            break; // 跳出重试循环，直接处理下一本书
+          }
+          
+          // 对于其他错误，根据错误类型决定是否重试
+          if (errorMsg.includes('Invalid URL') || errorMsg.includes('解析多维表格链接失败')) {
+            console.log(`书籍 ${bookId} 遇到配置错误，跳过重试`);
+            break;
+          }
+          
+          if (retry < maxRetries - 1) {
+            console.log(`准备第 ${retry + 2} 次重试`);
+          }
         }
       } catch (error: any) {
         console.error(`同步书籍 ${bookId} 时出错 (第${retry + 1}次尝试):`, error.message);
@@ -311,8 +329,16 @@ export async function batchSyncBooksToFeishu(
         
         // 如果是API限流错误，增加更长的延迟
         if (error.message && (error.message.includes('rate limit') || error.message.includes('429'))) {
-          console.log('检测到API限流，增加延迟时间');
-          await new Promise(resolve => setTimeout(resolve, baseDelay * 3));
+          const rateLimitDelay = Math.min(baseDelay * Math.pow(2, retry) * 5, 30000); // 最多等待30秒
+          console.log(`检测到API限流，等待 ${rateLimitDelay}ms 后重试`);
+          await new Promise(resolve => setTimeout(resolve, rateLimitDelay));
+        }
+        
+        // 对于网络连接错误，使用更长的延迟
+        if (error.message && (error.message.includes('ECONNREFUSED') || error.message.includes('timeout') || error.message.includes('网络'))) {
+          const networkDelay = Math.min(baseDelay * Math.pow(2, retry) * 3, 20000); // 最多等待20秒
+          console.log(`检测到网络错误，等待 ${networkDelay}ms 后重试`);
+          await new Promise(resolve => setTimeout(resolve, networkDelay));
         }
       }
     }
@@ -320,6 +346,7 @@ export async function batchSyncBooksToFeishu(
     // 记录最终结果
     if (success) {
       successCount++;
+      console.log(`✅ [${i + 1}/${bookIds.length}] 书籍 ${bookId} 同步成功`);
       results.push({
         success: true,
         message: '同步成功',
@@ -329,22 +356,34 @@ export async function batchSyncBooksToFeishu(
       failedCount++;
       let errorMessage = '未知错误';
       let isConnectionError = false;
+      let errorType = 'unknown';
       
       if (lastError) {
         errorMessage = lastError.message || '未知错误';
-        // 检查是否是连接相关的错误
-        if (errorMessage.includes('连接') || errorMessage.includes('网络') || 
-            errorMessage.includes('timeout') || errorMessage.includes('ECONNREFUSED') ||
-            errorMessage.includes('HTTP错误')) {
+        // 检查错误类型
+        if (errorMessage.includes('499') || errorMessage.includes('获取书籍信息失败')) {
+          errorType = 'book_info_failed';
           isConnectionError = true;
+        } else if (errorMessage.includes('连接') || errorMessage.includes('网络') || 
+                   errorMessage.includes('timeout') || errorMessage.includes('ECONNREFUSED') ||
+                   errorMessage.includes('HTTP错误')) {
+          errorType = 'connection_error';
+          isConnectionError = true;
+        } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+          errorType = 'rate_limit';
         }
       }
       
-      console.error(`书籍 ${bookId} 经过 ${maxRetries} 次重试后仍然失败: ${errorMessage}`);
+      // 根据错误类型输出不同的日志
+      if (errorType === 'book_info_failed') {
+        console.log(`⚠️  [${i + 1}/${bookIds.length}] 书籍 ${bookId} 获取信息失败，跳过同步: ${errorMessage}`);
+      } else {
+        console.error(`❌ [${i + 1}/${bookIds.length}] 书籍 ${bookId} 经过 ${maxRetries} 次重试后仍然失败: ${errorMessage}`);
+      }
       
       // 根据错误类型设置不同的错误信息
       const finalMessage = isConnectionError ? 
-        '飞书多维表格连接失败' : 
+        (errorType === 'book_info_failed' ? '获取书籍信息失败' : '飞书多维表格连接失败') : 
         `同步失败: ${errorMessage}`;
       
       results.push({

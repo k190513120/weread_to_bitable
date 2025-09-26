@@ -169,6 +169,20 @@ function getBookInfo(cookie, bookId) {
         }
         catch (error) {
             console.error(`获取书籍信息失败:`, error.message);
+            if (error.response) {
+                console.error(`响应状态: ${error.response.status}`);
+                console.error(`响应数据: ${JSON.stringify(error.response.data)}`);
+                // 对于特定的HTTP错误码，提供更详细的错误信息
+                if (error.response.status === 499) {
+                    console.error('HTTP 499错误：客户端关闭连接，可能是网络不稳定或请求超时');
+                }
+                else if (error.response.status >= 500) {
+                    console.error('服务器内部错误，建议稍后重试');
+                }
+                else if (error.response.status === 429) {
+                    console.error('请求频率过高，触发限流');
+                }
+            }
             return null;
         }
     });

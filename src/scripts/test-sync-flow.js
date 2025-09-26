@@ -13,66 +13,27 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.testSyncFlow = testSyncFlow;
 const sync_1 = require("../core/sync");
 const client_1 = require("../api/feishu/client");
-/**
- * 解析命令行参数
- */
-function parseCommandLineArgs() {
-    const args = process.argv.slice(2);
-    const result = {};
-    for (let i = 0; i < args.length; i++) {
-        const arg = args[i];
-        if (arg.startsWith('--bitable_url=')) {
-            result.bitable_url = arg.split('=')[1];
-        }
-        else if (arg === '--bitable_url' && i + 1 < args.length) {
-            result.bitable_url = args[i + 1];
-            i++;
-        }
-        else if (arg.startsWith('--personal_base_token=')) {
-            result.personal_base_token = arg.split('=')[1];
-        }
-        else if (arg === '--personal_base_token' && i + 1 < args.length) {
-            result.personal_base_token = args[i + 1];
-            i++;
-        }
-        else if (arg.startsWith('--weread_cookie=')) {
-            result.weread_cookie = arg.split('=')[1];
-        }
-        else if (arg === '--weread_cookie' && i + 1 < args.length) {
-            result.weread_cookie = args[i + 1];
-            i++;
-        }
-    }
-    return result;
-}
 function testSyncFlow() {
     return __awaiter(this, void 0, void 0, function* () {
         console.log('\n=== 测试完整同步流程 ===\n');
-        // 从命令行参数获取配置
-        const cmdArgs = parseCommandLineArgs();
-        const bitable_url = cmdArgs.bitable_url;
-        const personal_base_token = cmdArgs.personal_base_token;
-        const weread_cookie = cmdArgs.weread_cookie;
-        
-        console.log('配置来源: 命令行参数');
-        console.log(`飞书多维表格URL: ${bitable_url ? '已提供' : '未提供'}`);
-        console.log(`个人基础令牌: ${personal_base_token ? '已提供' : '未提供'}`);
-        console.log(`微信读书Cookie: ${weread_cookie ? '已提供' : '未提供'}`);
-        
+        // 强制要求所有参数都通过命令行传递
+        const args = process.argv.slice(2);
+        const getArg = (name) => {
+            const index = args.indexOf(`--${name}`);
+            return index !== -1 && index + 1 < args.length ? args[index + 1] : '';
+        };
+        const bitable_url = getArg('bitable_url');
+        const personal_base_token = getArg('personal_base_token');
+        const weread_cookie = getArg('weread_cookie');
         if (!bitable_url || !personal_base_token || !weread_cookie) {
-            console.error('❌ 缺少必要的参数:');
-            console.error('- bitable_url:', !!bitable_url);
-            console.error('- personal_base_token:', !!personal_base_token);
-            console.error('- weread_cookie:', !!weread_cookie);
-            console.error('\n请使用以下格式提供参数:');
-            console.error('node src/scripts/test-sync-flow.js --bitable_url <URL> --personal_base_token <TOKEN> --weread_cookie <COOKIE>');
+            console.error('❌ 缺少必要的命令行参数:');
+            console.error('- --bitable_url:', !!bitable_url);
+            console.error('- --personal_base_token:', !!personal_base_token);
+            console.error('- --weread_cookie:', !!weread_cookie);
             process.exit(1);
         }
         const syncParams = {
