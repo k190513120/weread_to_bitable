@@ -1,8 +1,6 @@
 name: 微信读书同步飞书多维表格
 
-# 触发条件
 on:
-  # 手动触发
   workflow_dispatch:
     inputs:
       bitable_url:
@@ -10,16 +8,12 @@ on:
         required: true
         type: string
       personal_base_token:
-        description: '飞书多维表格授权码'
+        description: '飞书个人授权码'
         required: true
         type: string
       weread_cookie:
         description: '微信读书Cookie'
         required: true
-        type: string
-      book_id:
-        description: '书籍ID（可选，用于同步单本书籍）'
-        required: false
         type: string
       sync_mode:
         description: '同步模式'
@@ -27,21 +21,13 @@ on:
         default: 'all'
         type: choice
         options:
-          - all
-          - single
-          - test
-  
-  # 通过repository_dispatch触发
+          - 'all'
+          - 'single'
+          - 'feishu'
   repository_dispatch:
-    types: 
-      - sync-all-books
-      - sync-single-book
-      - test-connection
+    types: [sync-weread]
 
-# 环境变量
-env:
-  NODE_VERSION: '18'
-  TIMEZONE: 'Asia/Shanghai'
+# 微信读书同步到飞书多维表格的GitHub Actions工作流
 
 jobs:
   sync-weread:
@@ -72,105 +58,140 @@ jobs:
       # 设置时区
       - name: 设置时区
         run: |
-          sudo timedatectl set-timezone ${{ env.TIMEZONE }}
+          sudo timedatectl set-timezone Asia/Shanghai
           echo "当前时间: $(date)"
       
-      # 准备同步参数
       - name: 准备同步参数
         id: prepare-params
         run: |
-          # 从不同触发源获取参数
+          echo "=== 准备同步参数 ==="
+          
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "触发方式: 手动触发"
-            echo "BITABLE_URL=${{ github.event.inputs.bitable_url }}" >> $GITHUB_ENV
-            echo "PERSONAL_BASE_TOKEN=${{ github.event.inputs.personal_base_token }}" >> $GITHUB_ENV
-            echo "WEREAD_COOKIE=${{ github.event.inputs.weread_cookie }}" >> $GITHUB_ENV
-            echo "BOOK_ID=${{ github.event.inputs.book_id }}" >> $GITHUB_ENV
-            echo "SYNC_MODE=${{ github.event.inputs.sync_mode }}" >> $GITHUB_ENV
+            echo "触发方式: 手动触发 (workflow_dispatch)"
+            echo "BITABLE_URL=${{ github.event.inputs.bitable_url }}"
+            echo "PERSONAL_BASE_TOKEN=${{ github.event.inputs.personal_base_token }}"
+            echo "WEREAD_COOKIE=${{ github.event.inputs.weread_cookie }}"
+            echo "SYNC_MODE=${{ github.event.inputs.sync_mode }}"
           elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            echo "触发方式: API触发"
-            echo "事件类型: ${{ github.event.action }}"
-            
-            # 直接从client_payload中提取参数并设置到环境变量
-            echo "BITABLE_URL=${{ github.event.client_payload.bitable_url }}" >> $GITHUB_ENV
-            echo "PERSONAL_BASE_TOKEN=${{ github.event.client_payload.personal_base_token }}" >> $GITHUB_ENV
-            echo "WEREAD_COOKIE=${{ github.event.client_payload.weread_cookie }}" >> $GITHUB_ENV
-            echo "BOOK_ID=${{ github.event.client_payload.book_id }}" >> $GITHUB_ENV
-            
-            # 调试输出（隐藏敏感信息）
-            echo "接收到的参数:"
-            echo "BITABLE_URL: ${{ github.event.client_payload.bitable_url }}"
-            echo "PERSONAL_BASE_TOKEN: ${PERSONAL_BASE_TOKEN:0:20}..."
-            echo "WEREAD_COOKIE: ${WEREAD_COOKIE:0:50}..."
-            
-            # 根据事件类型设置同步模式
-            if [ "${{ github.event.action }}" = "sync-single-book" ]; then
-              echo "SYNC_MODE=single" >> $GITHUB_ENV
-            elif [ "${{ github.event.action }}" = "test-connection" ]; then
-              echo "SYNC_MODE=test" >> $GITHUB_ENV
-            else
-              echo "SYNC_MODE=all" >> $GITHUB_ENV
-            fi
+            echo "触发方式: API触发 (repository_dispatch)"
+            echo "BITABLE_URL=${{ github.event.client_payload.bitable_url }}"
+            echo "PERSONAL_BASE_TOKEN=${{ github.event.client_payload.personal_base_token }}"
+            echo "WEREAD_COOKIE=${{ github.event.client_payload.weread_cookie }}"
+            echo "SYNC_MODE=${{ github.event.client_payload.sync_mode || 'all' }}"
           fi
           
-          # 验证必要参数
-          echo "验证参数..."
-          echo "BITABLE_URL: ${{ env.BITABLE_URL }}"
-          echo "PERSONAL_BASE_TOKEN: 已设置"
-          echo "WEREAD_COOKIE: 已设置"
+          echo "=== 调试信息 ==="
+          echo "Event Name: ${{ github.event_name }}"
+          echo "Repository Dispatch Type: ${{ github.event.action }}"
           
-          if [ -z "${{ env.BITABLE_URL }}" ] || [ -z "${{ env.PERSONAL_BASE_TOKEN }}" ] || [ -z "${{ env.WEREAD_COOKIE }}" ]; then
-            echo "错误: 缺少必要参数"
+          # 显示参数（隐藏敏感信息）
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "多维表格URL: ${{ github.event.inputs.bitable_url }}"
+            echo "授权码: ${{ github.event.inputs.personal_base_token }}"
+            echo "Cookie: ${{ github.event.inputs.weread_cookie }}"
+            echo "同步模式: ${{ github.event.inputs.sync_mode }}"
+          else
+            echo "多维表格URL: ${{ github.event.client_payload.bitable_url }}"
+            echo "授权码: ${{ github.event.client_payload.personal_base_token }}"
+            echo "Cookie: ${{ github.event.client_payload.weread_cookie }}"
+            echo "同步模式: ${{ github.event.client_payload.sync_mode }}"
+          fi
+      
+      # 验证参数
+      - name: 验证参数
+        run: |
+          echo "=== 验证同步参数 ==="
+          
+          # 根据触发方式获取参数
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BITABLE_URL="${{ github.event.inputs.bitable_url }}"
+            PERSONAL_BASE_TOKEN="${{ github.event.inputs.personal_base_token }}"
+            WEREAD_COOKIE="${{ github.event.inputs.weread_cookie }}"
+            SYNC_MODE="${{ github.event.inputs.sync_mode }}"
+          else
+            BITABLE_URL="${{ github.event.client_payload.bitable_url }}"
+            PERSONAL_BASE_TOKEN="${{ github.event.client_payload.personal_base_token }}"
+            WEREAD_COOKIE="${{ github.event.client_payload.weread_cookie }}"
+            SYNC_MODE="${{ github.event.client_payload.sync_mode }}"
+          fi
+          
+          # 验证必要参数是否存在
+          if [ -z "$BITABLE_URL" ]; then
+            echo "❌ 错误: 缺少飞书多维表格链接"
             exit 1
           fi
           
-          echo "参数验证通过"
-          echo "同步模式: ${{ env.SYNC_MODE }}"
-          if [ -n "${{ env.BOOK_ID }}" ]; then
-            echo "书籍ID: ${{ env.BOOK_ID }}"
+          if [ -z "$PERSONAL_BASE_TOKEN" ]; then
+            echo "❌ 错误: 缺少飞书个人授权码"
+            exit 1
           fi
+          
+          if [ -z "$WEREAD_COOKIE" ]; then
+            echo "❌ 错误: 缺少微信读书Cookie"
+            exit 1
+          fi
+          
+          echo "✅ 所有必要参数验证通过"
+          
+          # 显示参数信息（隐藏敏感信息）
+          echo "多维表格URL: ${BITABLE_URL:0:50}..."
+          echo "授权码: ${PERSONAL_BASE_TOKEN:0:20}..."
+          echo "Cookie长度: ${#WEREAD_COOKIE} 字符"
+          echo "同步模式: $SYNC_MODE"
       
-      # 验证飞书连接
-      - name: 验证飞书连接
+      # 测试飞书连接
+      - name: 测试飞书连接
         run: |
-          echo "验证飞书多维表格连接..."
-          npm run test:feishu-connection
-        env:
-          BITABLE_URL: ${{ env.BITABLE_URL }}
-          PERSONAL_BASE_TOKEN: ${{ env.PERSONAL_BASE_TOKEN }}
+          echo "=== 测试飞书多维表格连接 ==="
+          
+          # 根据触发方式获取参数
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BITABLE_URL="${{ github.event.inputs.bitable_url }}"
+            PERSONAL_BASE_TOKEN="${{ github.event.inputs.personal_base_token }}"
+            WEREAD_COOKIE="${{ github.event.inputs.weread_cookie }}"
+          else
+            BITABLE_URL="${{ github.event.client_payload.bitable_url }}"
+            PERSONAL_BASE_TOKEN="${{ github.event.client_payload.personal_base_token }}"
+            WEREAD_COOKIE="${{ github.event.client_payload.weread_cookie }}"
+          fi
+          
+          # 使用命令行参数测试连接
+          npm run test:feishu-connection -- --bitable-url "$BITABLE_URL" --personal-base-token "$PERSONAL_BASE_TOKEN" --weread-cookie "$WEREAD_COOKIE"
       
       # 执行同步任务
       - name: 执行同步任务
         id: sync-task
         run: |
-          echo "开始执行同步任务..."
-          echo "同步模式: ${{ env.SYNC_MODE }}"
+          echo "=== 开始执行同步任务 ==="
           
-          case "${{ env.SYNC_MODE }}" in
-            "single")
-              if [ -z "${{ env.BOOK_ID }}" ]; then
-                echo "错误: 单本书籍同步需要提供book_id"
-                exit 1
-              fi
-              echo "同步单本书籍: ${{ env.BOOK_ID }}"
-              npm run sync:single -- --book-id="${{ env.BOOK_ID }}"
-              ;;
-            "test")
-              echo "执行连接测试"
-              npm run test:sync
-              ;;
-            "all"|*)
-              echo "同步所有书籍"
-              npm run sync:all
-              ;;
-          esac
+          # 根据触发方式获取参数
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BITABLE_URL="${{ github.event.inputs.bitable_url }}"
+            PERSONAL_BASE_TOKEN="${{ github.event.inputs.personal_base_token }}"
+            WEREAD_COOKIE="${{ github.event.inputs.weread_cookie }}"
+            SYNC_MODE="${{ github.event.inputs.sync_mode }}"
+          else
+            BITABLE_URL="${{ github.event.client_payload.bitable_url }}"
+            PERSONAL_BASE_TOKEN="${{ github.event.client_payload.personal_base_token }}"
+            WEREAD_COOKIE="${{ github.event.client_payload.weread_cookie }}"
+            SYNC_MODE="${{ github.event.client_payload.sync_mode || 'all' }}"
+          fi
+          
+          echo "同步模式: $SYNC_MODE"
+          
+          # 根据同步模式执行不同的同步命令，使用命令行参数
+          if [ "$SYNC_MODE" = "single" ]; then
+            echo "执行单本书籍同步..."
+            npm run sync:single -- --bitable-url "$BITABLE_URL" --personal-base-token "$PERSONAL_BASE_TOKEN" --weread-cookie "$WEREAD_COOKIE"
+          elif [ "$SYNC_MODE" = "feishu" ]; then
+            echo "执行飞书同步..."
+            npm run sync:feishu -- --bitable-url "$BITABLE_URL" --personal-base-token "$PERSONAL_BASE_TOKEN" --weread-cookie "$WEREAD_COOKIE"
+          else
+            echo "执行全量同步..."
+            npm run sync:all -- --bitable-url "$BITABLE_URL" --personal-base-token "$PERSONAL_BASE_TOKEN" --weread-cookie "$WEREAD_COOKIE"
+          fi
           
           echo "同步任务完成"
-        env:
-          BITABLE_URL: ${{ env.BITABLE_URL }}
-          PERSONAL_BASE_TOKEN: ${{ env.PERSONAL_BASE_TOKEN }}
-          WEREAD_COOKIE: ${{ env.WEREAD_COOKIE }}
-          BOOK_ID: ${{ env.BOOK_ID }}
       
       # 生成同步报告
       - name: 生成同步报告
@@ -179,10 +200,15 @@ jobs:
           echo "=== 同步任务报告 ==="
           echo "执行时间: $(date)"
           echo "触发方式: ${{ github.event_name }}"
-          echo "同步模式: ${{ env.SYNC_MODE }}"
-          if [ -n "${{ env.BOOK_ID }}" ]; then
-            echo "书籍ID: ${{ env.BOOK_ID }}"
+          
+          # 根据触发方式获取同步模式
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SYNC_MODE="${{ github.event.inputs.sync_mode }}"
+          else
+            SYNC_MODE="${{ github.event.client_payload.sync_mode || 'all' }}"
           fi
+          
+          echo "同步模式: $SYNC_MODE"
           echo "任务状态: ${{ steps.sync-task.outcome }}"
           
           # 检查是否有同步日志文件

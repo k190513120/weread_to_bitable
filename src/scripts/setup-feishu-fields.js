@@ -122,13 +122,6 @@ const REQUIRED_FIELDS = [
         }
     },
     {
-        field_name: '阅读总时长',
-        type: 2, // 数字
-        property: {
-            formatter: '0'
-        }
-    },
-    {
         field_name: '阅读进度',
         type: 2, // 数字
         property: {

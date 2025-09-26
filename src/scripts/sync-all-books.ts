@@ -2,6 +2,7 @@
 /**
  * 同步所有书籍到飞书多维表格
  * 用于GitHub Action中的批量同步任务
+ * 支持命令行参数和环境变量两种配置方式
  */
 
 import dotenv from 'dotenv';
@@ -14,6 +15,28 @@ import { refreshSession, getNotebookBooks, getBookshelfBooks } from '../api/were
 dotenv.config();
 
 /**
+ * 解析命令行参数
+ */
+function parseCommandLineArgs() {
+  const args = process.argv.slice(2);
+  const params: any = {};
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--')) {
+      const key = arg.substring(2).replace(/-/g, '_');
+      const value = args[i + 1];
+      if (value && !value.startsWith('--')) {
+        params[key] = value;
+        i++; // 跳过下一个参数，因为它是当前参数的值
+      }
+    }
+  }
+  
+  return params;
+}
+
+/**
  * 主函数
  */
 async function main() {
@@ -21,12 +44,23 @@ async function main() {
     console.log('=== 开始同步所有书籍到飞书多维表格 ===');
     console.log(`执行时间: ${new Date().toISOString()}`);
 
-    // 从环境变量获取参数
+    // 解析命令行参数
+    const cmdArgs = parseCommandLineArgs();
+    
+    // 从命令行参数或环境变量获取参数（命令行参数优先）
     const syncParams: SyncParams = {
-      bitable_url: process.env.BITABLE_URL || '',
-      personal_base_token: process.env.PERSONAL_BASE_TOKEN || '',
-      weread_cookie: process.env.WEREAD_COOKIE || ''
+      bitable_url: cmdArgs.bitable_url || process.env.BITABLE_URL || '',
+      personal_base_token: cmdArgs.personal_base_token || process.env.PERSONAL_BASE_TOKEN || '',
+      weread_cookie: cmdArgs.weread_cookie || process.env.WEREAD_COOKIE || ''
     };
+    
+    console.log('配置来源:');
+    console.log(`- 微信读书Cookie: ${cmdArgs.weread_cookie ? '命令行参数' : '环境变量'}`);
+    console.log(`- 飞书授权码: ${cmdArgs.personal_base_token ? '命令行参数' : '环境变量'}`);
+    console.log(`- 多维表格URL: ${cmdArgs.bitable_url ? '命令行参数' : '环境变量'}`);
+    console.log(`- 多维表格URL: ${syncParams.bitable_url.substring(0, 50)}...`);
+    console.log(`- 授权码: ${syncParams.personal_base_token.substring(0, 20)}...`);
+    console.log(`- Cookie长度: ${syncParams.weread_cookie.length} 字符`);
 
     console.log('验证同步参数...');
     

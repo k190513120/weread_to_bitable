@@ -31,7 +31,6 @@ function convertBookToFeishuRecord(book, highlights, thoughts) {
             '封面链接': book.cover || '',
             '开始阅读时间': book.startReadingTime ? formatDateForFeishu(book.startReadingTime * 1000) : null,
             '完成阅读时间': book.finishTime ? formatDateForFeishu(book.finishTime * 1000) : null,
-            '阅读总时长': book.readingTime || 0,
             '阅读进度': book.progress || 0
         }
     };
@@ -128,7 +127,7 @@ function shouldUpdateRecord(existingRecord, newRecord) {
             return true; // 如果任一记录缺少必填字段，需要更新
         }
     }
-    const fieldsToCompare = ['划线内容', '想法内容', '笔记数量', '阅读状态', '阅读时长', '开始阅读时间', '完成阅读时间', '阅读总时长', '阅读进度'];
+    const fieldsToCompare = ['划线内容', '想法内容', '笔记数量', '阅读状态', '阅读时长', '开始阅读时间', '完成阅读时间', '阅读进度'];
     for (const field of fieldsToCompare) {
         const existingValue = existingRecord.fields[field];
         const newValue = newRecord.fields[field];
